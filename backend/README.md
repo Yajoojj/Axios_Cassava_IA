@@ -93,5 +93,3 @@ Após a execução, revise as pastas resultantes para corrigir possíveis classi
 - **prepare_dataset.py** – script para classificar e separar fotos de um diretório misto em pastas `healthy/` e `infected/` usando o modelo.
 - **requirements.txt** – lista as dependências Python necessárias.
 - **models/** – diretório onde devem ser armazenados os arquivos `.h5` com modelos treinados.
-
-Sinta-se à vontade para adaptar e estender o backend para sua necessidade específica!
