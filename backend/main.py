@@ -115,7 +115,7 @@ async def predict(image: UploadFile = File(...)) -> JSONResponse:
     # - Caso contrário, usamos a probabilidade combinada: se >= 0.3, "Infectado",
     #   senão "Saudável". O limiar 0.3 é menos conservador que 0.5, permitindo
     #   detectar infecções mais cedo, uma prática recomendada para monitoramento
-    #   de doenças em campo【301892444382090†screenshot】.
+    #   de doenças em campo】.
     if severity in ("Moderada", "Grave") or probability >= 0.3:
         predicted_class = "Infectado"
     else:
