@@ -1,7 +1,7 @@
-# Projeto Cassava Blight Detection – Versão Profissional (TensorFlow)
+# Projeto Cassava Blight Detection 
 
 Este repositório contém uma solução completa para **detecção de bacteriose em folhas de mandioca**.  
-A versão aqui fornecida utiliza **deep learning com TensorFlow e EfficientNet**, conforme sugerido em estudos recentes que combinam o espaço de cores HSV com redes profundas para melhorar a precisão na detecção【440207247202591†L104-L109】.  
+A versão aqui fornecida utiliza **deep learning com TensorFlow e EfficientNet**, conforme sugerido em estudos recentes que combinam o espaço de cores HSV com redes profundas para melhorar a precisão na detecção.  
 
 O projeto está organizado em duas partes principais:
 
@@ -41,14 +41,6 @@ cassava_ultimate/
 ## 🧠 Base científica
 
 Os algoritmos implementados seguem o resultado de pesquisas que combinaram técnicas de **segmentação em HSV** com redes **EfficientNet** para detecção de doenças em folhas.  
-Segundo Gao et al., a transformação da imagem para o espaço de cor HSV ajuda a realçar diferenças de tonalidade entre tecido saudável e infectado, e a utilização de EfficientNet na classificação melhora significativamente a precisão【440207247202591†L104-L109】.  
-Os resultados indicam que essa combinação auxilia na detecção precoce e monitoramento de doenças em plantios de mandioca【440207247202591†L154-L156】.
+Segundo Gao et al., a transformação da imagem para o espaço de cor HSV ajuda a realçar diferenças de tonalidade entre tecido saudável e infectado, e a utilização de EfficientNet na classificação melhora significativamente a precisão.  
+Os resultados indicam que essa combinação auxilia na detecção precoce e monitoramento de doenças em plantios de mandioca.
 
-## ✅ Próximos passos sugeridos
-
-- **Aumentar o dataset**: Quanto mais imagens rotuladas corretamente, melhor será o treinamento da rede.  
-- **Aprimorar hiperparâmetros**: Ajustar número de camadas congeladas, taxa de aprendizado, e técnicas de data augmentation.  
-- **Implantar em produção**: Adaptar o backend para rodar em containers (Docker), configurar CI/CD e hospedar em um serviço de nuvem.  
-- **Expandir classes**: Adicionar outras doenças ou estágios de infecção para um diagnóstico mais detalhado.
-
-Explore as demais pastas para instruções de utilização e customize conforme suas necessidades. Bom trabalho!
