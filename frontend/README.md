@@ -50,8 +50,3 @@ A aplicação exibe:
 - Um **mapa de infecção** em que a parte saudável da folha é colorida de
   verde e as áreas infectadas aparecem em vermelho. A imagem retorna em
   base64 diretamente da API.
-
-### Código comentado
-
-Todos os componentes estão comentados em português para facilitar o
-entendimento e a personalização. Qualquer dúvida ou melhoria é bem‑vinda!
