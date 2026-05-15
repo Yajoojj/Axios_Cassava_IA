@@ -121,7 +121,8 @@ Se não resolver:
 
 ### Arquivo `kaggle.json`
 
-Faça login na sua conta Kaggle e gere o arquivo em https://www.kaggle.com/settings/account (API → "Create New Token"), e depois:
+Faça login na sua conta Kaggle e gere o arquivo em https://www.kaggle.com/settings/account (API → "Create New Token").
+Depois:
 
 Coloque seu arquivo na pasta home:
 ```
