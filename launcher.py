@@ -7,7 +7,6 @@ Gerencia setup, execução e troubleshooting de forma simples
 import os
 import sys
 import subprocess
-import platform
 from pathlib import Path
 
 def clear_screen():
@@ -104,17 +103,14 @@ def show_docs():
     print()
     print("ARQUIVOS IMPORTANTES:")
     print()
-    print("📄 COMECE_AQUI.txt")
+    print("📄 QUICK_START_PT_BR.md")
     print("   → Guia rápido em português")
     print()
-    print("📄 EXECUTATION_GUIDE_PT_BR.md")
-    print("   → Guia completo com exemplos e troubleshooting")
+    print("📄 TROUBLESHOOTING.md")
+    print("   → Solução de problemas comuns")
     print()
     print("📄 README.md")
     print("   → Documentação técnica da IA")
-    print()
-    print("📄 SETUP.md")
-    print("   → Setup avançado e deploy")
     print()
     print("🌐 http://localhost:8000/docs")
     print("   → Documentação da API (ao rodar)")
@@ -196,4 +192,3 @@ if __name__ == "__main__":
     if not check_python():
         sys.exit(1)
     main()
-

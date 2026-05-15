@@ -119,14 +119,12 @@ Se não resolver:
 
 ## 📍 IMPORTANTE
 
-### Arquivo .env do Kaggle
+### Arquivo `kaggle.json`
 
-Você já tem um arquivo `kaggle.json` com credenciais:
-```json
-{"username":"yagokurashiki","key":"8eafa35437cadcf3164954f5bf68856c"}
-```
+Faça login na sua conta Kaggle e gere o arquivo em https://www.kaggle.com/settings/account (API → "Create New Token").
+Depois:
 
-Coloque na pasta home:
+Coloque seu arquivo na pasta home:
 ```
 C:\Users\SEU_USUARIO\.kaggle\kaggle.json
 ```
@@ -178,13 +176,11 @@ npm start
 
 ## 🎓 DOCUMENTAÇÃO
 
-Leia nessa ordem:
+Arquivos principais:
 
-1. **START_HERE.md** ← Você está aqui!
-2. COMECE_AQUI.txt
-3. EXECUTATION_GUIDE_PT_BR.md
-4. TROUBLESHOOTING.md
-5. README.md
+1. **QUICK_START_PT_BR.md** ← Você está aqui!
+2. TROUBLESHOOTING.md
+3. README.md
 
 ---
 
@@ -206,4 +202,3 @@ Quando der tudo certo, você terá:
 - ✅ IA funcionando 100%
 
 **Boa sorte! 🌿**
-
