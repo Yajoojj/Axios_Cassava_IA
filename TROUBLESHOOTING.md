@@ -233,10 +233,9 @@ CONFIDENCE_THRESHOLD=0.4  # Mais lenient
 
 1. Execute: `python test_api.py`
 2. Verifique os logs: `backend/logs/api.log`
-3. Leia: `EXECUTATION_GUIDE_PT_BR.md`
+3. Leia: `QUICK_START_PT_BR.md`
 4. Refaça: `setup_local.bat`
 
 ---
 
 **Não desista! A IA é simples de rodar! 🚀**
-
