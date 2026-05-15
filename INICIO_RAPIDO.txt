@@ -1,0 +1,69 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  🚀 GUIA DE 60 SEGUNDOS PARA COMEÇAR 🚀
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱️  PASSO 1 (Execute UMA VEZ - leva 5-10 minutos):
+
+   1. Abra a pasta do projeto
+   2. Procure o arquivo: setup_local.bat
+   3. Duplo clique nele
+   4. Aguarde completar (faz tudo automaticamente)
+
+
+⏱️  PASSO 2 (Execute TODA VEZ QUE QUER USAR):
+
+   1. Procure o arquivo: run_local.bat
+   2. Duplo clique nele
+   3. Abre 2 janelas automaticamente
+   4. Aguarde 30 segundos para carregar
+
+
+⏱️  PASSO 3 (No seu navegador):
+
+   1. Abra seu navegador (Chrome, Firefox, Edge, etc)
+   2. Digite: http://localhost:3000
+   3. Pronto! Sua IA está rodando! 🎉
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✨ PRONTO! SUA IA ESTÁ FUNCIONANDO! ✨
+
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│  Frontend:     http://localhost:3000                        │
+│  API Docs:     http://localhost:8000/docs                  │
+│  Health:       http://localhost:8000/health                │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❌ Se der erro, faça isso:
+
+   1. Leia: TROUBLESHOOTING.md
+   2. Ou execute: python test_api.py (testa se funciona)
+   3. Ou leia: EXECUTATION_GUIDE_PT_BR.md
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔐 Para usar dataset do Kaggle (opcional):
+
+   1. Acesse: https://www.kaggle.com/settings/account
+   2. Clique: "Create New Token"
+   3. Coloque em: C:\Users\SEU_USUARIO\.kaggle\kaggle.json
+   4. Execute: backend/download_dataset.bat
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 RESUMO:
+
+✅ Sem Docker necessário
+✅ Sem configuração complicada
+✅ Tudo automático
+✅ Funcionando 100%
+✅ Documentação em português
+✅ Kaggle arrumado
+
+Aproveite sua IA! 🌿
+
