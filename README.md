@@ -1,46 +1,73 @@
-# Projeto Cassava Blight Detection 
+# Axios Cassava IA
 
-Este repositório contém uma solução completa para **detecção de bacteriose em folhas de mandioca**.  
-A versão aqui fornecida utiliza **deep learning com TensorFlow e EfficientNet**, conforme sugerido em estudos recentes que combinam o espaço de cores HSV com redes profundas para melhorar a precisão na detecção.  
+Aplicacao para deteccao de bacteriose em folhas de mandioca usando uma API FastAPI com TensorFlow/EfficientNet, segmentacao HSV e uma interface React para envio de imagens.
 
-O projeto está organizado em duas partes principais:
+## Estrutura
 
-- **backend/** – uma API construída com **FastAPI** que carrega o modelo de rede neural para classificar imagens de folhas, calcula a proporção de área infectada via segmentação HSV e gera sobreposições coloridas.  
-- **frontend/** – uma aplicação **React** que permite ao usuário enviar fotos da folha, visualizar os resultados da predição e a imagem com mapa de infecção.
-
-Cada parte possui um README separado com instruções detalhadas de instalação e execução. Este arquivo resume o propósito geral e as considerações principais.
-
-## 🌿 Objetivo
-
-Detectar de forma automatizada se uma folha de mandioca está **saudável** ou **infectada** por bacteriose, indicando também a **severidade** da doença e a **proporção de área infectada**. O sistema foi pensado para rodar tanto em ambiente de desenvolvimento local quanto em servidores, fornecendo uma base extensível para novas funcionalidades.
-
-## 📁 Estrutura do repositório
-
-```
-cassava_ultimate/
-├── README.md              # Este arquivo
-├── backend/               # Código e scripts da API
-│   ├── README.md          # Instruções específicas do backend
-│   ├── main.py            # Servidor FastAPI com endpoint /predict
-│   ├── model_utils_dl.py  # Funções para criação e carregamento do modelo EfficientNet
-│   ├── hsv_utils.py       # Rotinas de segmentação HSV e sobreposição
-│   ├── train_efficientnet.py  # Script para treinar seu próprio modelo deep learning
-│   ├── prepare_dataset.py     # Script para organizar datasets misturados
-│   ├── requirements.txt   # Dependências Python
-│   └── models/            # (Vazio) Local para salvar modelos treinados (.h5)
-└── frontend/              # Aplicação React
-    ├── README.md          # Instruções específicas do frontend
-    ├── package.json       # Dependências e scripts do frontend
-    ├── public/
-    │   └── index.html     # HTML base usando Tailwind via CDN
-    └── src/
-        ├── App.js         # Componente principal com interface em português
-        └── index.js       # Ponto de entrada do React
+```text
+backend/   API FastAPI, modelo, segmentacao HSV e integracao opcional Supabase
+frontend/  Interface React publicada na Vercel
+supabase/  SQL de criacao da tabela de logs
 ```
 
-## 🧠 Base científica
+## Rodar Localmente
 
-Os algoritmos implementados seguem o resultado de pesquisas que combinaram técnicas de **segmentação em HSV** com redes **EfficientNet** para detecção de doenças em folhas.  
-Segundo Gao et al., a transformação da imagem para o espaço de cor HSV ajuda a realçar diferenças de tonalidade entre tecido saudável e infectado, e a utilização de EfficientNet na classificação melhora significativamente a precisão.  
-Os resultados indicam que essa combinação auxilia na detecção precoce e monitoramento de doenças em plantios de mandioca.
+Backend:
 
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm ci
+npm start
+```
+
+Acesse:
+
+- Frontend: `http://localhost:3000`
+- API: `http://localhost:8000`
+- Docs: `http://localhost:8000/docs`
+- Health: `http://localhost:8000/health`
+
+## Configuracao
+
+Backend (`backend/.env`):
+
+```bash
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+MODEL_PATH=models/cassava_effnet.h5
+CONFIDENCE_THRESHOLD=0.30
+MODEL_WEIGHT=0.50
+MAX_UPLOAD_MB=8
+```
+
+Frontend:
+
+```bash
+REACT_APP_API_URL=http://localhost:8000/predict
+```
+
+Em producao, altere `REACT_APP_API_URL` para a URL publica do backend.
+
+## Supabase
+
+A integracao com Supabase e opcional. Quando `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` estiverem configuradas no backend, cada predicao sera registrada na tabela `prediction_logs`.
+
+O SQL esta em:
+
+```text
+supabase/migrations/001_create_prediction_logs.sql
+```
+
+## Deploy
+
+Veja [DEPLOY.md](DEPLOY.md).

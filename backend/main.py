@@ -1,141 +1,164 @@
-"""Servidor FastAPI para detecção de bacteriose em folhas de mandioca.
+"""FastAPI server for cassava leaf blight detection."""
 
-Este módulo define o endpoint `/predict` que recebe uma imagem de folha via
-upload multipart, carrega um modelo EfficientNet previamente treinado,
-processa a imagem para gerar a probabilidade de infecção e também calcula
-a proporção e severidade da área infectada usando segmentação no espaço
-HSV. A resposta inclui uma sobreposição colorida em base64 para fácil
-visualização na interface web.
-"""
+import base64
+import logging
+import time
+from io import BytesIO
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+import cv2
+import numpy as np
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
-import numpy as np
 from PIL import Image
-import cv2
-import base64
-from io import BytesIO
-import os
 
+from config import (
+    APP_ENV,
+    CONFIDENCE_THRESHOLD,
+    CORS_ORIGINS,
+    MAX_UPLOAD_BYTES,
+    MODEL_PATH,
+    MODEL_WEIGHT,
+    SUPABASE_PREDICTION_TABLE,
+    SUPABASE_SERVICE_ROLE_KEY,
+    SUPABASE_URL,
+)
+from hsv_utils import classify_severity, create_overlay, segment_infection, segment_leaf
+from logging_config import configure_logging
 from model_utils_dl import load_trained_model, preprocess_image
-from hsv_utils import segment_leaf, segment_infection, classify_severity, create_overlay
 
 
-# Instanciação da aplicação FastAPI
+configure_logging()
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="Cassava Blight Detection API", version="1.0.0")
-
-# Configuração de CORS para permitir requisições de qualquer origem.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Em produção, especifique domínios confiáveis
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Caminho padrão do modelo. Altere se necessário.
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "cassava_effnet.h5")
+metrics = {"total_predictions": 0, "total_processing_time_ms": 0.0}
+supabase_client = None
 
-# Carregamento do modelo. Caso o arquivo não exista, a função
-# `load_trained_model` construirá um modelo novo com pesos ImageNet.
 try:
-    model = load_trained_model(MODEL_PATH)
-except Exception as exc:
-    # Se houver erro ao carregar, levante exceção informativa.
-    raise RuntimeError(f"Erro ao carregar o modelo em {MODEL_PATH}: {exc}")
+    model = load_trained_model(str(MODEL_PATH))
+    if model is None:
+        logger.warning("Model file not found at %s; using HSV-only fallback.", MODEL_PATH)
+except Exception:
+    logger.exception("Could not load model at %s. HSV fallback will be used.", MODEL_PATH)
+    model = None
+
+if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY:
+    try:
+        from supabase import create_client
+
+        supabase_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        logger.info("Supabase prediction logging enabled.")
+    except Exception:
+        logger.exception("Supabase client could not be initialized; logging disabled.")
+
+
+@app.get("/")
+async def root() -> dict:
+    return {"name": "Cassava Blight Detection API", "docs": "/docs", "health": "/health"}
+
+
+@app.get("/health")
+async def health() -> dict:
+    return {
+        "status": "ok",
+        "version": app.version,
+        "environment": APP_ENV,
+        "model_loaded": model is not None,
+        "supabase_logging": supabase_client is not None,
+    }
+
+
+@app.get("/metrics")
+async def get_metrics() -> dict:
+    total = metrics["total_predictions"]
+    average = metrics["total_processing_time_ms"] / total if total else 0
+    return {
+        "total_predictions": total,
+        "average_processing_time_ms": round(average, 2),
+    }
 
 
 @app.post("/predict")
 async def predict(image: UploadFile = File(...)) -> JSONResponse:
-    """Recebe uma imagem de folha e retorna a predição de infecção.
+    started = time.perf_counter()
 
-    Parâmetros:
-        image (UploadFile): arquivo da imagem enviado via formulário.
-
-    Retorna:
-        JSONResponse: dicionário com probabilidade, classe prevista,
-        proporção de área infectada, severidade e overlay em base64.
-    """
-    # Verifica se o conteúdo é uma imagem compatível.
     if image.content_type not in {"image/jpeg", "image/png", "image/jpg"}:
-        raise HTTPException(status_code=400, detail="Formato de imagem não suportado.")
+        raise HTTPException(status_code=400, detail="Formato de imagem nao suportado.")
 
-    # Lê o conteúdo do arquivo enviado
     contents = await image.read()
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Imagem muito grande para processamento.")
+
     try:
         pil_image = Image.open(BytesIO(contents)).convert("RGB")
     except Exception:
-        raise HTTPException(status_code=400, detail="Não foi possível abrir a imagem enviada.")
+        raise HTTPException(status_code=400, detail="Nao foi possivel abrir a imagem enviada.")
 
-    # Converte para array NumPy para segmentação
     np_image = np.array(pil_image)
-
-    # Pré-processa a imagem para o modelo (redimensiona, normaliza)
-    input_tensor = preprocess_image(pil_image)
-
-    # Realiza a predição com o modelo profundo (TensorFlow). A saída é uma
-    # lista [[probabilidade]] representando a confiança de infecção. Contudo,
-    # modelos recém-treinados ou com poucos dados podem tender a ficar perto
-    # de 0,5 para muitas imagens, fornecendo pouca distinção. Para aumentar
-    # a sensibilidade, combinaremos essa probabilidade com a proporção de
-    # infecção calculada via segmentação HSV (veja abaixo).
-    preds = model.predict(input_tensor)
-    probability_model = float(preds[0][0])
-
-    # Segmentação da folha e da infecção em HSV
     leaf_mask = segment_leaf(np_image)
-    infection_mask = segment_infection(np_image)
-    # Mantém somente as regiões infectadas dentro da folha
-    infection_mask = np.logical_and(leaf_mask, infection_mask)
+    infection_mask = np.logical_and(leaf_mask, segment_infection(np_image))
 
-    # Cálculo da proporção de área infectada (evita divisão por zero)
     total_leaf_pixels = float(leaf_mask.sum()) if leaf_mask.sum() > 0 else 1.0
     ratio = float(infection_mask.sum() / total_leaf_pixels)
-
-    # Classificação da severidade com base na proporção
     severity = classify_severity(ratio)
 
-    # ------------------------------------------------------------------
-    # Combinação de probabilidades: modelo + segmentação HSV
-    #
-    # Para gerar uma probabilidade final mais estável, calculamos a média
-    # ponderada entre a probabilidade prevista pelo modelo (probability_model)
-    # e a proporção de área infectada (ratio). Essa média equaliza a influência
-    # de cada componente e evita que o modelo domine completamente o resultado
-    # quando seus pesos ainda não estão bem ajustados. O peso 0.5 é escolhido
-    # empiricamente, mas pode ser ajustado conforme a performance.
-    probability = 0.5 * probability_model + 0.5 * ratio
-
-    # Definição da classe final:
-    # - Se a severidade for Moderada ou Grave (identificada pela segmentação),
-    #   forçamos a classe "Infectado". Isso dá maior confiança quando a
-    #   segmentação detectar lesões extensas.
-    # - Caso contrário, usamos a probabilidade combinada: se >= 0.3, "Infectado",
-    #   senão "Saudável". O limiar 0.3 é menos conservador que 0.5, permitindo
-    #   detectar infecções mais cedo, uma prática recomendada para monitoramento
-    #   de doenças em campo】.
-    if severity in ("Moderada", "Grave") or probability >= 0.3:
-        predicted_class = "Infectado"
+    if model is not None:
+        input_tensor = preprocess_image(pil_image)
+        preds = model.predict(input_tensor, verbose=0)
+        probability_model = float(preds[0][0])
+        probability = (MODEL_WEIGHT * probability_model) + ((1 - MODEL_WEIGHT) * ratio)
     else:
-        predicted_class = "Saudável"
+        probability_model = None
+        probability = ratio
 
-    # Gera a imagem de sobreposição colorida
+    predicted_class = (
+        "Infectado"
+        if severity in {"Moderada", "Grave"} or probability >= CONFIDENCE_THRESHOLD
+        else "Saudavel"
+    )
+
     overlay_image = create_overlay(np_image, leaf_mask, infection_mask)
-
-    # Codifica a sobreposição em PNG e depois para base64
     success, buffer = cv2.imencode(".png", overlay_image)
     if not success:
         raise HTTPException(status_code=500, detail="Erro ao gerar overlay da imagem.")
-    encoded_overlay = base64.b64encode(buffer).decode("utf-8")
 
-    return JSONResponse(
-        content={
-            "probability": probability,
-            "class": predicted_class,
-            "ratio": ratio,
-            "severity": severity,
-            "overlay": f"data:image/png;base64,{encoded_overlay}",
-        }
-    )
+    processing_time_ms = int((time.perf_counter() - started) * 1000)
+    metrics["total_predictions"] += 1
+    metrics["total_processing_time_ms"] += processing_time_ms
+
+    payload = {
+        "probability": probability,
+        "model_probability": probability_model,
+        "class": predicted_class,
+        "ratio": ratio,
+        "severity": severity,
+        "processing_time_ms": processing_time_ms,
+        "overlay": f"data:image/png;base64,{base64.b64encode(buffer).decode('utf-8')}",
+    }
+
+    if supabase_client is not None:
+        try:
+            supabase_client.table(SUPABASE_PREDICTION_TABLE).insert(
+                {
+                    "filename": image.filename,
+                    "content_type": image.content_type,
+                    "predicted_class": predicted_class,
+                    "probability": probability,
+                    "infection_ratio": ratio,
+                    "severity": severity,
+                    "processing_time_ms": processing_time_ms,
+                }
+            ).execute()
+        except Exception:
+            logger.exception("Could not write prediction log to Supabase.")
+
+    return JSONResponse(content=payload)
