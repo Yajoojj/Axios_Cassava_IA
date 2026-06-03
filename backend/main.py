@@ -17,8 +17,11 @@ from config import (
     CONFIDENCE_THRESHOLD,
     CORS_ORIGINS,
     MAX_UPLOAD_BYTES,
+    MIN_INFECTION_RATIO,
     MODEL_PATH,
+    MODEL_CONFIRMATION_RATIO,
     MODEL_WEIGHT,
+    STRONG_MODEL_THRESHOLD,
     SUPABASE_PREDICTION_TABLE,
     SUPABASE_SERVICE_ROLE_KEY,
     SUPABASE_URL,
@@ -115,16 +118,22 @@ async def predict(image: UploadFile = File(...)) -> JSONResponse:
         input_tensor = preprocess_image(pil_image)
         preds = model.predict(input_tensor, verbose=0)
         probability_model = float(preds[0][0])
-        probability = (MODEL_WEIGHT * probability_model) + ((1 - MODEL_WEIGHT) * ratio)
+        hsv_probability = min(ratio / 0.20, 1.0)
+        probability = (MODEL_WEIGHT * probability_model) + ((1 - MODEL_WEIGHT) * hsv_probability)
     else:
         probability_model = None
-        probability = ratio
+        hsv_probability = min(ratio / 0.20, 1.0)
+        probability = hsv_probability
 
-    predicted_class = (
-        "Infectado"
-        if severity in {"Moderada", "Grave"} or probability >= CONFIDENCE_THRESHOLD
-        else "Saudavel"
+    has_visible_infection = ratio >= MIN_INFECTION_RATIO
+    model_confirms_small_lesion = (
+        probability_model is not None
+        and ratio >= MODEL_CONFIRMATION_RATIO
+        and probability_model >= STRONG_MODEL_THRESHOLD
     )
+    predicted_class = "Infectado" if (
+        has_visible_infection or model_confirms_small_lesion or probability >= CONFIDENCE_THRESHOLD
+    ) else "Saudavel"
 
     overlay_image = create_overlay(np_image, leaf_mask, infection_mask)
     success, buffer = cv2.imencode(".png", overlay_image)
@@ -138,6 +147,7 @@ async def predict(image: UploadFile = File(...)) -> JSONResponse:
     payload = {
         "probability": probability,
         "model_probability": probability_model,
+        "hsv_probability": hsv_probability,
         "class": predicted_class,
         "ratio": ratio,
         "severity": severity,
