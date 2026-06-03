@@ -5,6 +5,9 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 backend/venv/
 backend/logs/
@@ -12,11 +15,17 @@ backend/dataset/
 backend/kaggle_raw/
 backend/sorted_dataset/
 backend/mixed_images/
+backend/models/*
+!backend/models/cassava_effnet.h5
+!backend/models/cassava_model.h5
 
 frontend/node_modules/
 frontend/build/
 frontend/.env
+frontend/dist/
 
 .vercel/
 .idea/
+.vscode/
 .DS_Store
+Thumbs.db
