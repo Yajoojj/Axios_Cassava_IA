@@ -16,6 +16,8 @@ function App() {
     return (result.probability * 100).toFixed(2);
   }, [result]);
 
+  const selectedFileName = file ? file.name : "Nenhuma imagem selecionada";
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!file) return;
@@ -62,27 +64,38 @@ function App() {
 
   return (
     <main className="app-shell">
-      <section className="intro">
-        <p className="eyebrow">Axios Cassava IA</p>
-        <h1>Deteccao de bacteriose em folhas de mandioca</h1>
-        <p>
-          Envie uma foto da folha para classificar o risco de infeccao, estimar
-          severidade e visualizar o mapa das areas suspeitas.
-        </p>
-      </section>
+      <header className="app-header">
+        <div>
+          <p className="eyebrow">Axios Cassava IA</p>
+          <h1>Diagnostico de folhas de mandioca</h1>
+        </div>
+        <div className="model-status">
+          <span />
+          IA ativa
+        </div>
+      </header>
 
       <section className="analysis-panel" aria-label="Analise da folha">
         <form onSubmit={handleSubmit} className="upload-form">
-          <label htmlFor="leaf-image">Imagem da folha</label>
-          <input
-            id="leaf-image"
-            type="file"
-            accept="image/png,image/jpeg"
-            onChange={handleFileChange}
-          />
-          <button type="submit" disabled={!file || loading}>
-            {loading ? "Processando..." : "Analisar"}
-          </button>
+          <div className="upload-copy">
+            <label htmlFor="leaf-image">Imagem da folha</label>
+            <p>{selectedFileName}</p>
+          </div>
+
+          <div className="upload-actions">
+            <input
+              id="leaf-image"
+              type="file"
+              accept="image/png,image/jpeg"
+              onChange={handleFileChange}
+            />
+            <label className="file-button" htmlFor="leaf-image">
+              Escolher imagem
+            </label>
+            <button type="submit" disabled={!file || loading}>
+              {loading ? "Processando" : "Analisar"}
+            </button>
+          </div>
         </form>
 
         {error && <p className="status error">{error}</p>}
@@ -112,7 +125,10 @@ function App() {
             {result.overlay && (
               <div className="image-results">
                 <div className="image-toolbar">
-                  <h2>Mapa de infeccao</h2>
+                  <div>
+                    <span className="section-kicker">Visualizacao</span>
+                    <h2>Mapa de infeccao</h2>
+                  </div>
                   {imageURL && (
                     <button type="button" onClick={() => setCompare((value) => !value)}>
                       {compare ? "Ver mapa" : "Comparar"}
