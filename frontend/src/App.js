@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
 import "./App.css";
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/predict";
+const DEFAULT_API_URL = `${window.location.protocol}//${window.location.hostname}:8000/predict`;
+const API_URL = process.env.REACT_APP_API_URL || DEFAULT_API_URL;
 
 function App() {
   const [file, setFile] = useState(null);
@@ -42,7 +43,9 @@ function App() {
 
       setResult(data);
     } catch (requestError) {
-      setError(requestError.message || "Nao foi possivel processar a imagem.");
+      setError(
+        `Nao foi possivel conectar na API em ${API_URL}. Confirme se o backend esta rodando na porta 8000.`
+      );
     } finally {
       setLoading(false);
     }
