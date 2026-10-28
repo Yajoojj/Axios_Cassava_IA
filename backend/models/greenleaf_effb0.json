@@ -1,0 +1,30 @@
+{
+  "version": "greenleaf_effb0-2026-10-28",
+  "arch": "efficientnet_b0.ra_in1k",
+  "img_size": 256,
+  "cache_size": 288,
+  "classes": [
+    "CBB",
+    "CBSD",
+    "CGM",
+    "CMD",
+    "Healthy"
+  ],
+  "input": "float32 [N,3,S,S] RGB 0-1; normalização ImageNet dentro do grafo",
+  "outputs": {
+    "probs": "softmax [N,5]",
+    "cam": "mapa de ativação [N,5,S/32,S/32]"
+  },
+  "tta_hflip": true,
+  "decision": {
+    "threshold": 0.26,
+    "model_weight": 1.0
+  },
+  "metrics_test": {
+    "accuracy_5_classes": 0.8551401869158879,
+    "f1_macro_5_classes": 0.7441165053027594,
+    "bacteriose_recall": 0.7798165137614679,
+    "bacteriose_precision": 0.48295454545454547,
+    "bacteriose_roc_auc": 0.9192832201789692
+  }
+}

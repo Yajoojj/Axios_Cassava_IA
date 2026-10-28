@@ -88,9 +88,10 @@ C:\Users\SEU_USUARIO\.kaggle\kaggle.json
 
 ### 5.3 Baixar Dataset
 ```
-1. Abra pasta: backend/
-2. Duplo clique em: download_dataset.bat
-3. Aguarde (vai levar 30+ minutos)
+Só é preciso para treinar a IA de novo (a API já vem com o modelo).
+1. Rode: python launcher.py e escolha "Baixar Dataset"
+2. Extraia o .zip em ../cassava-leaf-disease-classification
+3. Siga training/README.md
 ```
 
 ---
@@ -153,7 +154,7 @@ run_local.bat
 Terminal 1:
 cd backend
 venv\Scripts\activate.bat
-python -m uvicorn main:app --reload
+python -m uvicorn app.main:app --reload
 
 Terminal 2:
 cd frontend
@@ -170,7 +171,7 @@ npm start
 | Rodar | `run_local.bat` |
 | Testar | `python test_api.py` |
 | Menu | `python launcher.py` |
-| Baixar Dataset | `backend\download_dataset.bat` |
+| Baixar Dataset | `python launcher.py` (opção 3) |
 
 ---
 
@@ -188,7 +189,7 @@ Arquivos principais:
 
 ✅ Feche run_local.bat com `Ctrl+C` em cada janela
 ✅ Se der erro de porta, veja TROUBLESHOOTING.md
-✅ Logs estão em: backend/logs/api.log
+✅ Logs aparecem na janela do backend
 ✅ Modelo está em: backend/models/
 
 ---

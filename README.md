@@ -1,189 +1,102 @@
-# Axios Cassava IA
+# Axios Cassava IA — GreenLeaf IA v2
 
-Axios Cassava IA é uma aplicação para apoio à detecção de bacteriose em folhas de mandioca. O projeto combina uma API FastAPI, inferência com TensorFlow/EfficientNet, segmentação HSV para análise visual das lesões e uma interface React para envio de imagens e visualização do resultado.
+API de apoio à detecção de **bacteriose** em folhas de mandioca, usada pelo app GreenLeaf (PI V — DSM, FATEC Registro).
+A rede (EfficientNet-B0) foi treinada no dataset público
+[Cassava Leaf Disease Classification (Kaggle)](https://www.kaggle.com/competitions/cassava-leaf-disease-classification),
+exportada em **ONNX** e servida por **FastAPI + ONNX Runtime**, com o mesmo contrato de API da versão anterior.
 
-> O sistema é uma ferramenta de apoio técnico. Ele não substitui avaliação agronômica, análise laboratorial ou diagnóstico profissional em campo.
+> O resultado é uma estimativa e não substitui a avaliação de um agrônomo nem um exame de laboratório.
 
-## Stack Técnica
+## Resultados (teste: 2.140 fotos nunca vistas, medidas com o código da API)
 
-- **Frontend:** React 18 com Create React App.
-- **Backend:** FastAPI, Uvicorn, TensorFlow CPU, OpenCV, Pillow e NumPy.
-- **Modelo:** arquivos `.h5` versionados em `backend/models/` para manter a experiência de clone e execução local.
-- **Banco opcional:** Supabase para registrar histórico de predições.
-- **Deploy:** frontend na Vercel e backend em Docker ou servidor Python persistente.
+| | IA v2 | Regra só por cor (v1) |
+|---|---|---|
+| Acurácia nas 5 classes | **85,5 %** (meta O1 do artigo: ≥ 85 %) | — |
+| F1 macro nas 5 classes | 74,4 % | — |
+| Bacteriose: revocação | **78,0 %** | 96,3 % |
+| Bacteriose: especificidade | **95,5 %** | 7,9 % |
+| Bacteriose: precisão | 48,3 % | 5,3 % |
+| Bacteriose: AUC ROC | **0,92** | 0,60 |
+| Tempo por foto (CPU) | ~45 ms | — |
 
-## Arquitetura
+A regra antiga "achava" quase toda bacteriose porque marcava **92 % de todas as folhas** como doentes.
+Detalhes por classe e matriz de confusão: [training/reports/metrics.md](training/reports/metrics.md).
+Integração com o app: [INTEGRACAO.md](INTEGRACAO.md).
 
-```mermaid
-flowchart LR
-    User["Usuário"] --> Frontend["Frontend React"]
-    Frontend -->|POST /predict| API["API FastAPI"]
-    API --> Validation["Validação da imagem"]
-    API --> HSV["Segmentação HSV"]
-    API --> Model["TensorFlow / EfficientNet"]
-    HSV --> Decision["Combinação e severidade"]
-    Model --> Decision
-    Decision --> Overlay["Overlay da área suspeita"]
-    Decision -. opcional .-> Supabase["Supabase prediction_logs"]
-    API -->|JSON + overlay base64| Frontend
-```
+## O que mudou em relação à v1
 
-## Fluxo de Predição
+| | v1 | v2 |
+|---|---|---|
+| Dados | pastas `healthy/` e `infected/` (origem não documentada) | 21.397 fotos de campo do Kaggle (Uganda), rotuladas por especialistas |
+| Tarefa da rede | binária (infectado × sadio) | **5 classes**: bacteriose (CBB), estria marrom (CBSD), mosqueado verde (CGM), mosaico (CMD), sadia |
+| Treino | só a cabeça; EfficientNet congelada | **ajuste fino da EfficientNet-B0 inteira**, aumento de dados, pesos por classe, *label smoothing* |
+| Decisão | 35 % rede + 65 % cor, limiares fixos | peso e limiar **calibrados na validação** (F2 da bacteriose) |
+| Avaliação | não havia | divisão estratificada 80/10/10, teste nunca visto, métricas por classe |
+| Explicação visual | manchas por cor em toda a foto (bordas, sombras e solo viravam "manchas"; lesões saíam azuis) | manchas **só onde a rede viu doença** + contorno amarelo dessa região (CAM) |
+| Execução | TensorFlow (~500 MB) | ONNX Runtime (~15 MB); o mesmo `.onnx` roda no navegador |
 
-```mermaid
-flowchart TD
-    A["Upload JPEG/PNG"] --> B{"Formato e tamanho válidos?"}
-    B -- "Não" --> C["Erro HTTP 400/413"]
-    B -- "Sim" --> D["Conversão para RGB"]
-    D --> E["Máscara da folha"]
-    E --> F["Máscara de infecção por HSV"]
-    F --> G["Probabilidade visual"]
-    D --> H{"Modelo carregado?"}
-    H -- "Sim" --> I["Probabilidade do modelo"]
-    H -- "Não" --> J["Fallback HSV"]
-    I --> K["Combinação ponderada"]
-    J --> K
-    G --> K
-    K --> L["Classe, severidade e taxa de infecção"]
-    L --> M["Geração do overlay"]
-    M --> N["Resposta JSON"]
-```
+Por que 5 classes: o mosaico (CMD) e as outras viroses também amarelam e mancham a folha. Uma IA que só conhece
+"infectado × sadio" confunde essas doenças com bacteriose. Separá-las é o que torna o diagnóstico de bacteriose
+confiável — e permite ao app avisar "não é bacteriose, mas a folha tem outra doença".
 
-## Estrutura do Repositório
+## Estrutura do repositório
 
 ```text
-backend/      API, configuração, modelos, treinamento e utilitários de imagem
-frontend/     Interface React para upload e exibição dos resultados
-supabase/     Migração SQL para logs opcionais de predição
-DEPLOY.md     Guia de publicação
-TROUBLESHOOTING.md
-              Solução de problemas comuns
+backend/      API FastAPI + ONNX Runtime (pasta pronta para Docker / Render)
+  app/          main.py (rotas), analysis.py (regra de decisão), model.py (ONNX), hsv.py (cor e overlay)
+  models/       greenleaf_effb0.onnx + greenleaf_effb0.json (classes, tamanho, limiar calibrado, métricas)
+  tests/        testes do contrato da API
+training/     pipeline de treino (PyTorch + timm), divisão usada e relatórios
+frontend/     interface React antiga para upload e exibição (continua compatível)
+supabase/     migração SQL para logs opcionais de predição
+INTEGRACAO.md contrato da API e integração com o app GreenLeaf
+DEPLOY.md     guia de publicação
 ```
 
-Arquivos gerados localmente, como `venv`, `node_modules`, logs, datasets e novos artefatos de treino, ficam fora do Git pelo `.gitignore`.
-
-## Execução Local
-
-### Pré-requisitos
-
-- Python 3.10 ou superior.
-- Node.js 18 ou superior.
-- Git.
-
-### Backend
+## Execução local
 
 ```bash
 cd backend
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-copy .env.example .env
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+python -m venv .venv
+.venv/Scripts/pip install -r requirements-dev.txt
+.venv/Scripts/python -m pytest
+.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
 ```
 
-### Frontend
+- API: `http://localhost:8000` — Swagger: `http://localhost:8000/docs` — Health: `http://localhost:8000/health`
+- Variáveis em `backend/.env.example` (copie para `backend/.env`). Deixe `CONFIDENCE_THRESHOLD` e `MODEL_WEIGHT` vazios
+  para usar os valores calibrados que estão em `backend/models/greenleaf_effb0.json`.
+- O frontend React antigo continua funcionando (`cd frontend && npm ci && npm start`), e os scripts `setup_local.bat` /
+  `run_local.bat` sobem os dois.
 
-Em outro terminal:
-
-```bash
-cd frontend
-npm ci
-npm start
-```
-
-Acesse:
-
-- Frontend: `http://localhost:3000`
-- API: `http://localhost:8000`
-- Swagger/OpenAPI: `http://localhost:8000/docs`
-- Health check: `http://localhost:8000/health`
-
-Também é possível usar os scripts Windows mantidos no projeto:
-
-```bat
-setup_local.bat
-run_local.bat
-```
-
-## Variáveis de Ambiente
-
-Crie `backend/.env` a partir de `backend/.env.example`.
-
-```bash
-APP_ENV=development
-PORT=8000
-CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-MODEL_PATH=models/cassava_effnet.h5
-CONFIDENCE_THRESHOLD=0.45
-MODEL_WEIGHT=0.35
-MIN_INFECTION_RATIO=0.02
-MODEL_CONFIRMATION_RATIO=0.01
-STRONG_MODEL_THRESHOLD=0.85
-MAX_UPLOAD_MB=8
-SUPABASE_URL=
-SUPABASE_SERVICE_ROLE_KEY=
-SUPABASE_PREDICTION_TABLE=prediction_logs
-```
-
-No frontend, configure a URL pública da API quando necessário:
-
-```bash
-REACT_APP_API_URL=http://localhost:8000/predict
-```
-
-Em produção, substitua por `https://URL-DO-SEU-BACKEND/predict`.
-
-## Endpoints da API
+## Endpoints
 
 | Método | Rota | Descrição |
 | --- | --- | --- |
 | `GET` | `/` | Informações básicas da API |
-| `GET` | `/health` | Status, ambiente, modelo carregado e Supabase |
+| `GET` | `/health` | Status, modelo carregado, versão do modelo e Supabase |
 | `GET` | `/metrics` | Total de predições e tempo médio |
-| `POST` | `/predict` | Recebe imagem e retorna classe, probabilidade, severidade e overlay |
+| `POST` | `/predict` | Recebe a foto (campo `image`) e retorna classe, probabilidade, severidade, overlay e as 5 classes |
 
-## Supabase Opcional
+O contrato completo está em [INTEGRACAO.md](INTEGRACAO.md).
 
-A integração com Supabase registra cada predição na tabela `prediction_logs` quando as variáveis `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` estão configuradas no backend.
+## Supabase (opcional)
 
-Execute a migração:
+Com `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` configuradas na API, cada predição é registrada na tabela
+`prediction_logs` (migração em `supabase/migrations/001_create_prediction_logs.sql`). A chave service role fica
+**somente** no servidor.
 
-```sql
-supabase/migrations/001_create_prediction_logs.sql
-```
+## Limitações
 
-Mantenha `SUPABASE_SERVICE_ROLE_KEY` somente no backend. Nunca exponha essa chave em variáveis `REACT_APP_*` ou no navegador.
-
-## Deploy
-
-```mermaid
-flowchart LR
-    Repo["GitHub"] --> Vercel["Vercel"]
-    Vercel --> Build["npm ci + npm run build"]
-    Build --> Web["Frontend público"]
-    Repo --> BackendHost["Docker ou servidor Python"]
-    BackendHost --> API["FastAPI pública"]
-    Web -->|REACT_APP_API_URL| API
-    API -. logs opcionais .-> Supabase["Supabase"]
-```
-
-O guia completo está em [DEPLOY.md](DEPLOY.md).
-
-## Testes e Verificação
-
-```bash
-python -m compileall backend
-cd frontend
-npm run build
-```
-
-Com backend e frontend rodando, execute:
-
-```bash
-python test_api.py
-```
-
-Se encontrar erro de ambiente, dependências, TensorFlow, CORS ou Supabase, consulte [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+- **Severidade (Leve/Moderada/Grave) não é aprendida**: o Kaggle não tem rótulo de severidade. Ela vem da taxa de manchas
+  medida pela cor dentro da região apontada pela rede (< 3 %, < 15 %, ≥ 15 %) e não pôde ser validada com rótulos.
+- **Meta O2 (revocação ≥ 90 %) ainda não atingida**: a revocação é 78 % no limiar calibrado (0,26). Baixar o limiar
+  aumenta a revocação, mas também os alarmes falsos.
+- **"Chance" baixa com diagnóstico positivo**: com limiar 0,26 o app pode mostrar "33 % de chance" junto de "Sinais de
+  bacteriose". Vale trocar a porcentagem por um nível de risco (baixo/médio/alto).
+- **Domínio**: as fotos são de Uganda. Antes de afirmar desempenho no Vale do Ribeira é preciso testar com fotos locais.
+- **Ruído de rótulo**: parte dos rótulos da competição é conhecida por estar errada; isso limita a acurácia máxima.
+- A rede não recusa fotos que não são de folha de mandioca; só há checagem de tamanho e de luz.
 
 ## Licença
 

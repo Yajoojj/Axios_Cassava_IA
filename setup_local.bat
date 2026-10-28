@@ -71,9 +71,8 @@ if %errorlevel% neq 0 (
 )
 echo ✓ Dependências do backend instaladas
 
-if not exist "models" mkdir models
-if not exist "logs" mkdir logs
-echo ✓ Diretórios criados (models, logs)
+if not exist ".env" copy .env.example .env > nul
+echo ✓ backend\.env pronto
 
 cd ..
 
@@ -133,15 +132,13 @@ echo.
 echo [5/5] 🤖 Verificando modelo de IA...
 echo.
 
-if exist "backend\models\cassava_effnet_best.keras" (
-    echo ✓ Modelo encontrado: cassava_effnet_best.keras
+if exist "backend\models\greenleaf_effb0.onnx" (
+    echo ✓ Modelo encontrado: greenleaf_effb0.onnx
 ) else (
     echo ⚠️  Modelo não encontrado em backend\models\
     echo.
-    echo    Se você tiver um modelo treinado, coloque em:
-    echo    backend\models\cassava_effnet_best.keras
-    echo.
-    echo    Caso contrário, o sistema criará um modelo padrão
+    echo    O modelo greenleaf_effb0.onnx vem no repositório. Para gerá-lo de novo, veja training\
+    echo    Sem ele, a API responde só com a análise de cor.
 )
 
 echo.
@@ -158,7 +155,7 @@ echo.
 echo    Terminal 1 (Backend):
 echo    cd backend
 echo    venv\Scripts\activate.bat
-echo    python -m uvicorn main:app --reload
+echo    python -m uvicorn app.main:app --reload
 echo.
 echo    Terminal 2 (Frontend):
 echo    cd frontend

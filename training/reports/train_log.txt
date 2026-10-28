@@ -1,0 +1,58 @@
+Dispositivo: privateuseone:0
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+  época 1 passo 100/534 loss 3.3819 (13.2 img/s)
+  época 1 passo 200/534 loss 2.7508 (15.2 img/s)
+  época 1 passo 300/534 loss 2.3676 (16.3 img/s)
+  época 1 passo 400/534 loss 2.1308 (16.9 img/s)
+  época 1 passo 500/534 loss 1.9628 (17.3 img/s)
+época 1: loss 1.9193 | val acc 0.7537 | F1 macro 0.5786 | recall CBB 0.130 | 25.1 min
+  -> melhor modelo salvo em training/models/greenleaf_effb0.pt
+  época 2 passo 66/534 loss 1.1933 (15.8 img/s)
+  época 2 passo 166/534 loss 1.1793 (17.3 img/s)
+  época 2 passo 266/534 loss 1.1688 (18.0 img/s)
+  época 2 passo 366/534 loss 1.1578 (17.9 img/s)
+  época 2 passo 466/534 loss 1.1454 (16.6 img/s)
+época 2: loss 1.1390 | val acc 0.7869 | F1 macro 0.6513 | recall CBB 0.454 | 19.8 min
+  -> melhor modelo salvo em training/models/greenleaf_effb0.pt
+  época 3 passo 32/534 loss 1.1262 (13.6 img/s)
+  época 3 passo 132/534 loss 1.0743 (17.0 img/s)
+  época 3 passo 232/534 loss 1.0651 (17.8 img/s)
+  época 3 passo 332/534 loss 1.0615 (18.1 img/s)
+  época 3 passo 432/534 loss 1.0523 (18.3 img/s)
+  época 3 passo 532/534 loss 1.0450 (18.1 img/s)
+época 3: loss 1.0445 | val acc 0.8238 | F1 macro 0.7212 | recall CBB 0.556 | 16.8 min
+  -> melhor modelo salvo em training/models/greenleaf_effb0.pt
+  época 4 passo 98/534 loss 1.0141 (18.8 img/s)
+  época 4 passo 198/534 loss 0.9986 (18.9 img/s)
+  época 4 passo 298/534 loss 1.0014 (19.0 img/s)
+  época 4 passo 398/534 loss 0.9984 (19.0 img/s)
+  época 4 passo 498/534 loss 0.9946 (19.0 img/s)
+época 4: loss 0.9961 | val acc 0.8397 | F1 macro 0.7255 | recall CBB 0.426 | 15.9 min
+  -> melhor modelo salvo em training/models/greenleaf_effb0.pt
+  época 5 passo 64/534 loss 0.9592 (18.7 img/s)
+  época 5 passo 164/534 loss 0.9492 (18.9 img/s)
+  época 5 passo 264/534 loss 0.9447 (19.0 img/s)
+  época 5 passo 364/534 loss 0.9556 (19.0 img/s)
+  época 5 passo 464/534 loss 0.9547 (19.0 img/s)
+época 5: loss 0.9574 | val acc 0.8458 | F1 macro 0.7468 | recall CBB 0.685 | 15.9 min
+  -> melhor modelo salvo em training/models/greenleaf_effb0.pt
+  época 6 passo 30/534 loss 0.8880 (18.3 img/s)
+  época 6 passo 130/534 loss 0.8991 (18.9 img/s)
+  época 6 passo 230/534 loss 0.9144 (19.0 img/s)
+  época 6 passo 330/534 loss 0.9178 (19.0 img/s)
+  época 6 passo 430/534 loss 0.9191 (19.0 img/s)
+  época 6 passo 530/534 loss 0.9223 (19.0 img/s)
+época 6: loss 0.9217 | val acc 0.8710 | F1 macro 0.7733 | recall CBB 0.685 | 15.8 min
+  -> melhor modelo salvo em training/models/greenleaf_effb0.pt
+  época 7 passo 96/534 loss 0.8985 (18.8 img/s)
+  época 7 passo 196/534 loss 0.8972 (18.9 img/s)
+  época 7 passo 296/534 loss 0.8973 (18.9 img/s)
+  época 7 passo 396/534 loss 0.8921 (19.0 img/s)
+  época 7 passo 496/534 loss 0.8895 (18.9 img/s)
+época 7: loss 0.8906 | val acc 0.8687 | F1 macro 0.7697 | recall CBB 0.630 | 15.9 min
+  época 8 passo 62/534 loss 0.8606 (18.5 img/s)
+  época 8 passo 162/534 loss 0.8661 (18.8 img/s)
+  época 8 passo 262/534 loss 0.8611 (18.9 img/s)
+  época 8 passo 362/534 loss 0.8624 (18.9 img/s)
+  época 8 passo 462/534 loss 0.8627 (18.9 img/s)
+época 8: loss 0.8661 | val acc 0.8654 | F1 macro 0.7707 | recall CBB 0.676 | 15.9 min

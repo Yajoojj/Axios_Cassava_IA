@@ -64,19 +64,15 @@ def run_app():
     else:
         print("❌ Run para Linux/Mac não implementado ainda")
         print("   Execute manualmente em dois terminais:")
-        print("   Terminal 1: cd backend && source venv/bin/activate && python -m uvicorn main:app --reload")
+        print("   Terminal 1: cd backend && source venv/bin/activate && python -m uvicorn app.main:app --reload")
         print("   Terminal 2: cd frontend && npm start")
 
 def download_dataset():
-    """Baixa o dataset do Kaggle"""
-    if os.name == 'nt':
-        os.chdir('backend')
-        os.system('download_dataset.bat')
-        os.chdir('..')
-    else:
-        os.chdir('backend')
-        os.system('bash -c "source venv/bin/activate && python download_kaggle_dataset.py"')
-        os.chdir('..')
+    """Baixa o dataset do Kaggle (só é preciso para treinar de novo; a API já vem com o modelo)"""
+    print("📥 O dataset fica ao lado do repositório, em ../cassava-leaf-disease-classification")
+    print("   (ou na pasta indicada por CASSAVA_DATASET_DIR). Aceite as regras da competição no Kaggle antes.")
+    os.system('kaggle competitions download -c cassava-leaf-disease-classification -p ../cassava-leaf-disease-classification')
+    print("   Extraia o .zip nessa pasta e siga training/README.md.")
 
 def show_menu():
     """Mostra menu principal"""

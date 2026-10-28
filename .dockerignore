@@ -3,9 +3,8 @@
 **/__pycache__
 **/*.pyc
 backend/venv
-backend/dataset
-backend/kaggle_raw
-backend/logs
+backend/.venv
+training
 frontend/node_modules
 frontend/build
 .env
