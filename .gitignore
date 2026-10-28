@@ -10,14 +10,13 @@ __pycache__/
 htmlcov/
 
 backend/venv/
-backend/logs/
-backend/dataset/
-backend/kaggle_raw/
-backend/sorted_dataset/
-backend/mixed_images/
-backend/models/*
-!backend/models/cassava_effnet.h5
-!backend/models/cassava_model.h5
+backend/.venv/
+
+# Treino: cache das imagens e checkpoints PyTorch ficam fora do Git.
+# O modelo servido (backend/models/greenleaf_effb0.onnx + .json) é versionado.
+.venv/
+training/data/cache/
+training/models/
 
 frontend/node_modules/
 frontend/build/

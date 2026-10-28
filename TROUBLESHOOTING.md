@@ -76,9 +76,9 @@
 **Solução:**
 1. Verifique se o arquivo existe:
    ```
-   C:\Seu\Projeto\backend\models\cassava_effnet_best.keras
+   C:\Seu\Projeto\backend\models\greenleaf_effb0.onnx
    ```
-2. Se não existir, o sistema criará um modelo padrão automaticamente
+2. Se não existir, a API responde só com a análise de cor (`/health` mostra `model_loaded: false`)
 3. Execute: `python launcher.py` e escolha opção 4 para verificar deps
 
 ---
@@ -124,9 +124,9 @@ Se quiser baixar o dataset:
 1. Acesse: https://www.kaggle.com/settings/account
 2. Clique em "Create New Token"
 3. Coloque `kaggle.json` em: `C:\Users\SEU_USUARIO\.kaggle\`
-4. Execute: `backend/download_dataset.bat`
+4. Execute: `python launcher.py` e escolha "Baixar Dataset"
 
-Se não quiser, a IA ainda funciona (usa modelo padrão).
+Se não quiser, a IA funciona normalmente: o dataset só é preciso para treinar de novo.
 
 ---
 
@@ -138,12 +138,12 @@ Se não quiser, a IA ainda funciona (usa modelo padrão).
    C:\Users\SEU_USUARIO\.kaggle\kaggle.json
    ```
 2. Verifique se tem internet (o dataset é grande ~3.4 GB)
-3. Tente novamente: `backend/download_dataset.bat`
+3. Tente novamente: `python launcher.py` (opção 3)
 4. Você pode pausar (`Ctrl+C`) e continuar depois
 
 ---
 
-### ❌ "ModuleNotFoundError: tensorflow"
+### ❌ "ModuleNotFoundError: onnxruntime"
 
 **Solução:**
 1. Abra: `backend/`
@@ -174,10 +174,7 @@ Se não quiser, a IA ainda funciona (usa modelo padrão).
    ```
    http://localhost:8000/health
    ```
-3. Verifique os logs:
-   ```
-   backend/logs/api.log
-   ```
+3. Verifique os logs na janela do backend (a API registra no terminal)
 
 ---
 
@@ -201,12 +198,7 @@ Se tudo passar, está pronto para usar!
 
 ### Executar Backend sem reload (melhor performance)
 ```bash
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
-```
-
-### Ver logs em tempo real
-```bash
-type backend\logs\api.log
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 ### Limpar tudo e recomeçar
@@ -215,7 +207,6 @@ rmdir /s /q backend\venv
 rmdir /s /q frontend\node_modules
 del backend\.env
 del frontend\.env
-del backend\logs\api.log
 
 Depois execute setup_local.bat novamente
 ```
@@ -232,7 +223,7 @@ CONFIDENCE_THRESHOLD=0.4  # Mais lenient
 ## 📞 Se Nada Funcionar
 
 1. Execute: `python test_api.py`
-2. Verifique os logs: `backend/logs/api.log`
+2. Verifique os logs na janela do backend
 3. Leia: `QUICK_START_PT_BR.md`
 4. Refaça: `setup_local.bat`
 

@@ -3,7 +3,7 @@
 Este projeto tem duas partes:
 
 - `frontend/`: interface React, recomendada para Vercel.
-- `backend/`: API FastAPI com TensorFlow/OpenCV, recomendada para Docker ou servidor Python persistente.
+- `backend/`: API FastAPI com ONNX Runtime/OpenCV, recomendada para Docker (Render) ou servidor Python persistente.
 
 ## 1. GitHub
 
@@ -41,12 +41,14 @@ python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Se voce ja tinha um `venv` antigo com TensorFlow 2.14, recrie o ambiente. Os
-modelos `.h5` deste repositorio usam formato mais novo de Keras e precisam das
-versoes pinadas em `backend/requirements.txt`.
+Se voce ja tinha um `venv` da versao antiga (TensorFlow), recrie o ambiente: a v2 usa ONNX Runtime.
+
+Render (Docker): **New -> Web Service -> Docker**, *Root Directory* `backend/`. Configure
+`APP_ENV=production` e `CORS_ORIGINS=https://<dominio-do-app>`. A Render define `PORT` e o
+`Dockerfile` ja usa essa variavel. Confira em `GET /health` que `model_loaded` e `true`.
 
 Docker:
 
@@ -86,8 +88,8 @@ npm ci
 npm run build
 
 cd ..\backend
-python -m compileall .
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
+python -m pytest
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 Com a API rodando, acesse `http://localhost:8000/health`.

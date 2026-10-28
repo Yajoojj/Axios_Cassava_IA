@@ -1,0 +1,81 @@
+{
+  "args": {
+    "epochs": 8,
+    "img_size": 256,
+    "batch_size": 32,
+    "lr": 0.0006,
+    "weight_decay": 0.01,
+    "label_smoothing": 0.1,
+    "workers": 6,
+    "device": "dml",
+    "bench": 0,
+    "limit": 0,
+    "out": "greenleaf_effb0"
+  },
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 1.9193309804473477,
+      "val_accuracy": 0.7537383177570094,
+      "val_f1_macro": 0.5786467139151308,
+      "val_cbb_recall": 0.12962962962962962,
+      "minutes": 25.078070578333428
+    },
+    {
+      "epoch": 2,
+      "train_loss": 1.138963027504946,
+      "val_accuracy": 0.7869158878504673,
+      "val_f1_macro": 0.6512865580393996,
+      "val_cbb_recall": 0.4537037037037037,
+      "minutes": 19.842862958333352
+    },
+    {
+      "epoch": 3,
+      "train_loss": 1.0445134889766965,
+      "val_accuracy": 0.8238317757009346,
+      "val_f1_macro": 0.7212482601848772,
+      "val_cbb_recall": 0.5555555555555556,
+      "minutes": 16.750871671666633
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.9960517799586392,
+      "val_accuracy": 0.8397196261682243,
+      "val_f1_macro": 0.725478051273938,
+      "val_cbb_recall": 0.42592592592592593,
+      "minutes": 15.907590921666634
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.9573757926399789,
+      "val_accuracy": 0.8457943925233645,
+      "val_f1_macro": 0.7468108734552987,
+      "val_cbb_recall": 0.6851851851851852,
+      "minutes": 15.863770350000049
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.9217038537455855,
+      "val_accuracy": 0.8710280373831776,
+      "val_f1_macro": 0.7732874555852066,
+      "val_cbb_recall": 0.6851851851851852,
+      "minutes": 15.848608243333244
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.8906417516956615,
+      "val_accuracy": 0.8686915887850467,
+      "val_f1_macro": 0.7697408850030011,
+      "val_cbb_recall": 0.6296296296296297,
+      "minutes": 15.92767594500001
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.866129317980134,
+      "val_accuracy": 0.8654205607476636,
+      "val_f1_macro": 0.7706920888160547,
+      "val_cbb_recall": 0.6759259259259259,
+      "minutes": 15.90750167999989
+    }
+  ]
+}

@@ -31,7 +31,7 @@ echo.
 
 REM Inicia o Backend em uma nova janela
 echo [1] Iniciando Backend em porta 8000...
-start "Backend - Cassava API" cmd /k "cd backend && venv\Scripts\activate.bat && python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000"
+start "Backend - Cassava API" cmd /k "cd backend && venv\Scripts\activate.bat && python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
 
 REM Aguarda um pouco para o backend ligar
 timeout /t 3 /nobreak
