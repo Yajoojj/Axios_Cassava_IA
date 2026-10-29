@@ -63,11 +63,32 @@ class Predictor:
         return ModelOutput(probabilities=probs[0], attention=cam[0])
 
 
-def attention_mask(cam: np.ndarray, shape: tuple[int, int], threshold: float = 0.55) -> np.ndarray:
-    """Região onde a ativação da classe passa de `threshold` do máximo, no tamanho da imagem."""
+def upsample_attention(cam: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
+    """Mapa de atenção normalizado (0–1 do pico) no tamanho da imagem. O `cam` tem só S/32 de lado (8x8).
+
+    As 4 células dos cantos são zeradas: no teste, 41% dos picos caíam nelas (efeito do preenchimento
+    de borda das convoluções), o que desenhava arcos amarelos nos cantos de quase toda foto.
+    """
     cam = np.maximum(cam, 0)
+    if min(cam.shape) > 2:
+        cam = cam.copy()
+        cam[[0, 0, -1, -1], [0, -1, 0, -1]] = 0
     peak = float(cam.max())
     if peak <= 0:
-        return np.zeros(shape, dtype=bool)
-    up = cv2.resize(cam / peak, (shape[1], shape[0]), interpolation=cv2.INTER_CUBIC)
-    return up >= threshold
+        return np.zeros(shape, dtype=np.float32)
+    return cv2.resize((cam / peak).astype(np.float32), (shape[1], shape[0]), interpolation=cv2.INTER_CUBIC)
+
+
+def attention_mask(cam: np.ndarray, shape: tuple[int, int], threshold: float = 0.55) -> np.ndarray:
+    """Região contínua em torno do pico onde a ativação passa de `threshold` do máximo, no tamanho da imagem.
+
+    Só o trecho que contém o pico: os outros costumam ser arcos nos cantos da foto, efeito da borda
+    nas convoluções, e não lesão.
+    """
+    up = upsample_attention(cam, shape)
+    mask = up >= threshold
+    if not mask.any():
+        return mask
+    _, labels = cv2.connectedComponents(mask.astype("uint8"), connectivity=8)
+    peak = np.unravel_index(int(np.argmax(up)), up.shape)
+    return labels == labels[peak]

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-from .hsv import classify_severity, create_overlay, encode_jpeg_data_url, lesion_ratio
+from .hsv import around, classify_severity, convex_region, create_overlay, encode_jpeg_data_url, lesion_ratio, main_leaf_region
 from .model import Predictor, attention_mask
 
 LABELS_PT = {
@@ -20,6 +20,10 @@ LABELS_PT = {
     "CMD": "Mosaico (CMD)",
     "Healthy": "Sadia",
 }
+
+
+# Fração da região de decisão da rede que a folha escolhida precisa cobrir para servir de recorte.
+MIN_LEAF_COVERAGE = 0.5
 
 
 @dataclass(frozen=True)
@@ -75,6 +79,7 @@ def analyze(rgb: np.ndarray, predictor: Predictor | None, settings: DecisionSett
         if classes[top] == "Healthy":
             # Folha sadia para a rede: bordas, sombras e solo não viram "manchas".
             lesions = np.zeros_like(lesions)
+            cam = np.maximum(out.attention[top], 0)
         else:
             # Mapa de "doença": atenção de cada classe doente ponderada pela sua probabilidade.
             # A análise de cor sozinha marca bordas, sombras e solo; contamos só o que está perto
@@ -82,7 +87,20 @@ def analyze(rgb: np.ndarray, predictor: Predictor | None, settings: DecisionSett
             sick = [i for i, c in enumerate(classes) if c != "Healthy"]
             cam = np.tensordot(probs[sick], np.maximum(out.attention[sick], 0), axes=1)
             lesions &= _focus_region(cam, rgb.shape[:2])
-            attention = attention_mask(cam, rgb.shape[:2])
+        # Só a folha analisada conta: com mato ao fundo, todo verde da cena passaria por "folha"
+        # e a folhagem seca entre as folhas, por "mancha" (issue #7). Folha amarelada, seca ou
+        # murcha quase não tem verde e a "folha" achada pela cor seria o mato; nesse caso, sem recorte.
+        decision_region = attention_mask(cam, rgb.shape[:2])
+        region = main_leaf_region(leaf, decision_region)
+        covered = float((decision_region & region).sum()) / max(float(decision_region.sum()), 1.0)
+        clip = None
+        if covered >= MIN_LEAF_COVERAGE:
+            leaf &= region
+            lesions &= around(region, 0.03)
+            clip = convex_region(region)
+        if classes[top] != "Healthy":
+            # O mapa de atenção é 8x8 ampliado: sem o recorte, o contorno invade o fundo.
+            attention = decision_region if clip is None else decision_region & clip
         leaf_area = float((leaf | lesions).sum())
         ratio = float(lesions.sum()) / leaf_area if leaf_area > 0 else 0.0
         hsv_probability = min(ratio / 0.20, 1.0)

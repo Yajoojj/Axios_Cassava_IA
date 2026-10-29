@@ -81,6 +81,44 @@ def lesion_ratio(image: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
     return ratio, leaf, lesions
 
 
+def main_leaf_region(leaf: np.ndarray, focus: np.ndarray | None = None) -> np.ndarray:
+    """Região preenchida da folha analisada; outras folhas, mato seco e solo ao fundo ficam de fora.
+
+    Entre os componentes verdes, escolhe o que mais se sobrepõe à região em que a rede se apoiou
+    (`focus`) ou, sem ela, o maior. O contorno externo é preenchido para que as manchas dentro da
+    folha (que não são verdes) façam parte dela.
+    """
+    components, labels, stats, _ = cv2.connectedComponentsWithStats(leaf.astype("uint8"), 8)
+    if components <= 1:
+        return np.zeros(leaf.shape, dtype=bool)
+    score = stats[:, cv2.CC_STAT_AREA].astype(np.float64)
+    if focus is not None:
+        overlap = np.bincount(labels[focus], minlength=components).astype(np.float64)
+        if overlap[1:].max() > 0:
+            score = overlap
+    score[0] = -1
+    best = (labels == int(np.argmax(score))).astype("uint8")
+    contours, _ = cv2.findContours(best, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    region = np.zeros(leaf.shape, dtype="uint8")
+    cv2.drawContours(region, contours, -1, 1, cv2.FILLED)
+    return region > 0
+
+
+def around(region: np.ndarray, fraction: float) -> np.ndarray:
+    """A região mais uma faixa de `fraction` do lado maior da imagem (ponta necrosada fora do verde)."""
+    k = max(3, round(max(region.shape) * fraction)) | 1
+    return cv2.dilate(region.astype("uint8"), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))) > 0
+
+
+def convex_region(region: np.ndarray) -> np.ndarray:
+    """Envoltória convexa da região: recorte suave, sem seguir cada lóbulo da folha."""
+    points = cv2.findNonZero(region.astype("uint8"))
+    hull = np.zeros(region.shape, dtype="uint8")
+    if points is not None:
+        cv2.fillConvexPoly(hull, cv2.convexHull(points), 1)
+    return hull > 0
+
+
 def classify_severity(ratio: float) -> str:
     if ratio < 0.03:
         return "Leve"

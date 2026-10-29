@@ -47,7 +47,6 @@ backend/      API FastAPI + ONNX Runtime (pasta pronta para Docker / Render)
   models/       greenleaf_effb0.onnx + greenleaf_effb0.json (classes, tamanho, limiar calibrado, métricas)
   tests/        testes do contrato da API
 training/     pipeline de treino (PyTorch + timm), divisão usada e relatórios
-frontend/     interface React antiga para upload e exibição (continua compatível)
 supabase/     migração SQL para logs opcionais de predição
 INTEGRACAO.md contrato da API e integração com o app GreenLeaf
 DEPLOY.md     guia de publicação
@@ -66,8 +65,7 @@ python -m venv .venv
 - API: `http://localhost:8000` — Swagger: `http://localhost:8000/docs` — Health: `http://localhost:8000/health`
 - Variáveis em `backend/.env.example` (copie para `backend/.env`). Deixe `CONFIDENCE_THRESHOLD` e `MODEL_WEIGHT` vazios
   para usar os valores calibrados que estão em `backend/models/greenleaf_effb0.json`.
-- O frontend React antigo continua funcionando (`cd frontend && npm ci && npm start`), e os scripts `setup_local.bat` /
-  `run_local.bat` sobem os dois.
+- Também roda com Docker: `docker compose up --build`.
 
 ## Endpoints
 
@@ -96,6 +94,12 @@ Com `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` configuradas na API, cada predi
   bacteriose". Vale trocar a porcentagem por um nível de risco (baixo/médio/alto).
 - **Domínio**: as fotos são de Uganda. Antes de afirmar desempenho no Vale do Ribeira é preciso testar com fotos locais.
 - **Ruído de rótulo**: parte dos rótulos da competição é conhecida por estar errada; isso limita a acurácia máxima.
+- **Overlay em mato denso**: a folha analisada é separada do fundo pela cor. Quando toda a vegetação verde se encosta,
+  ou quando a folha doente quase não tem verde (amarelada, seca), não dá para isolá-la: o contorno não é recortado e
+  a cor pode marcar folhagem seca ao redor. O diagnóstico não muda (vem só da rede). Oriente a foto de **uma folha só,
+  de perto, com fundo liso**.
+- O contorno amarelo vem de um mapa de atenção 8x8 ampliado: mostra a região que mais pesou na decisão, de forma
+  aproximada, não a forma exata da lesão.
 - A rede não recusa fotos que não são de folha de mandioca; só há checagem de tamanho e de luz.
 
 ## Licença
