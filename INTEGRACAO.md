@@ -17,7 +17,7 @@ flowchart LR
 
 - O app **continua chamando o mesmo endereço** (`VITE_API_URL`) e as mesmas rotas: `POST /predict`, `GET /health`, `GET /metrics`.
 - Sai o TensorFlow, entra o **ONNX Runtime**: a imagem Docker fica bem menor, o servidor sobe mais rápido na Render
-  (plano gratuito "dorme") e cada análise leva ~0,1 s de CPU.
+  (plano gratuito "dorme") e cada análise leva ~0,2 s de CPU num PC (cerca de 2 s no plano gratuito da Render).
 
 ## 2. Contrato da API (compatível com o app atual)
 
@@ -25,14 +25,14 @@ flowchart LR
 
 | Campo | Tipo | Significado |
 |---|---|---|
-| `probability` | 0–1 | Chance de bacteriose: `peso × rede + (1 − peso) × cor`, peso calibrado na validação (hoje 1,0, ou seja, só a rede). `Infectado` a partir de 0,26 |
+| `probability` | 0–1 | Chance de bacteriose: `peso × rede + (1 − peso) × cor`, peso calibrado na validação (hoje 1,0, ou seja, só a rede). `Infectado` a partir de 0,28 (limiar que equilibra alarmes falsos e bacterioses perdidas, F1) |
 | `model_probability` | 0–1 ou `null` | Probabilidade de bacteriose (CBB) dada pela rede; `null` = modelo não carregou, só cor |
 | `hsv_probability` | 0–1 | Probabilidade pela cor (`min(taxa / 0,20, 1)`) |
 | `class` | `"Infectado"` \| `"Saudavel"` | Decisão sobre **bacteriose** |
-| `ratio` | 0–1 | Taxa de infecção: parte da folha com manchas |
+| `ratio` | 0–1 | Taxa de infecção: parte da folha analisada com necrose (marrom, escuro, acinzentado). Amarelo não conta. **0 quando não é bacteriose** |
 | `severity` | `"Leve"` \| `"Moderada"` \| `"Grave"` | Pela taxa: < 3 %, < 15 %, ≥ 15 % (o app ignora quando `Saudavel`) |
 | `processing_time_ms` | número | Tempo no servidor |
-| `overlay` | `data:image/jpeg;base64,...` | Folha em verde, manchas em vermelho, **contorno amarelo = onde a IA olhou** |
+| `overlay` | `data:image/jpeg;base64,...` | Folha em verde, manchas em vermelho **só quando o diagnóstico é bacteriose**, **contorno amarelo = onde a IA olhou** |
 | **novos (opcionais)** | | |
 | `other_disease` | `"CBSD"` \| `"CGM"` \| `"CMD"` \| `null` | Bacteriose descartada, mas a folha tem sinais de outra doença |
 | `diagnosis` | `{code, label, probability}` | Classe mais provável entre as 5 |

@@ -1,7 +1,8 @@
 """Segmentação cromática (HSV) da folha e das manchas, severidade e imagem de sobreposição.
 
-Vem do Axios Cassava IA (backend/hsv_utils.py), com duas mudanças:
-- o overlay é devolvido em RGB e convertido para BGR só na hora de codificar o PNG
+Vem do Axios Cassava IA (backend/hsv_utils.py), com mudanças:
+- amarelo é folha, não mancha: só necrose (marrom, escuro, acinzentado) conta como lesão;
+- o overlay é devolvido em RGB e convertido para BGR só na hora de codificar o JPEG
   (o servidor antigo mandava RGB para o cv2.imencode e as lesões saíam azuis);
 - o overlay pode receber o mapa de atenção da rede e desenhar o contorno da região
   que mais pesou no diagnóstico.
@@ -24,17 +25,22 @@ def _keep_relevant_components(mask: np.ndarray, min_area: int) -> np.ndarray:
     return keep[labels]
 
 
-def segment_leaf(image: np.ndarray) -> np.ndarray:
-    hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
-    rgb = image.astype(np.int16)
+def _channels(image: np.ndarray):
+    rgb = image.astype(np.float32)
+    hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV).astype(np.int16)
+    return rgb[..., 0], rgb[..., 1], rgb[..., 2], hsv[..., 0], hsv[..., 1], hsv[..., 2]
 
-    hsv_mask = cv2.inRange(hsv, np.array([24, 45, 35]), np.array([96, 255, 245]))
-    green_dominance = (
-        (rgb[:, :, 1] > rgb[:, :, 0] + 8)
-        & (rgb[:, :, 1] > rgb[:, :, 2] + 8)
-        & (rgb[:, :, 1] > 45)
-    )
-    mask = np.logical_and(hsv_mask > 0, green_dominance).astype("uint8") * 255
+
+def segment_leaf(image: np.ndarray) -> np.ndarray:
+    """Tecido de folha: verde e também amarelo.
+
+    Amarelo (clorose do mosaico, folha velha ou sem nutriente) continua sendo folha, não lesão de
+    bacteriose. Contá-lo como mancha pintava de vermelho folhas amareladas inteiras.
+    """
+    r, g, b, h, s, v = _channels(image)
+    green = (h >= 24) & (h <= 96) & (s >= 45) & (v >= 35) & (v <= 245) & (g > r + 8) & (g > b + 8) & (g > 45)
+    yellow = (g >= 0.80 * r) & (g <= r + 8) & (r >= 110) & (b <= 0.72 * g) & (s >= 70) & (h >= 15) & (h <= 40)
+    mask = (green | yellow).astype("uint8") * 255
 
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -43,42 +49,53 @@ def segment_leaf(image: np.ndarray) -> np.ndarray:
     return _keep_relevant_components(mask, min_area)
 
 
-def segment_infection(image: np.ndarray) -> np.ndarray:
-    hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
-    rgb = image.astype(np.int16)
+def fill_small_holes(mask: np.ndarray, max_hole: int) -> np.ndarray:
+    """Preenche buracos de até `max_hole` px (manchas dentro da folha); os maiores são fundo entre folhas."""
+    _, labels, stats, _ = cv2.connectedComponentsWithStats((~mask).astype("uint8"), 4)
+    x, y, w, h, area = stats.T
+    height, width = mask.shape
+    fill = ~((x == 0) | (y == 0) | (x + w == width) | (y + h == height)) & (area <= max_hole)
+    fill[0] = False
+    return mask | fill[labels]
 
-    yellow_brown = cv2.inRange(hsv, np.array([8, 90, 45]), np.array([45, 255, 235]))
-    necrotic_dark = cv2.inRange(hsv, np.array([0, 35, 20]), np.array([35, 180, 125]))
-    color_mask = np.logical_or(yellow_brown > 0, necrotic_dark > 0)
 
-    not_healthy_green = ~(
-        (rgb[:, :, 1] > rgb[:, :, 0] + 12)
-        & (rgb[:, :, 1] > rgb[:, :, 2] + 12)
-        & (hsv[:, :, 1] > 60)
-    )
-    mask = np.logical_and(color_mask, not_healthy_green).astype("uint8") * 255
+def segment_lesions(image: np.ndarray, leaf: np.ndarray) -> np.ndarray:
+    """Necrose: marrom ou marrom-arroxeado dentro do contorno da folha; escuro ou acinzentado em buracos dela.
+
+    Sombras, solo e galhos ao lado da folha não entram: o contorno é o da folha "fechada"
+    (fechamento morfológico), que cobre as mordidas de necrose na borda sem avançar sobre o fundo.
+    """
+    area = image.shape[0] * image.shape[1]
+    inside = fill_small_holes(leaf, int(area * 0.01))
+    r, g, b, h, s, v = _channels(image)
+    petiole = (h >= 140) & (s > 120)  # pecíolo vermelho/roxo da mandioca
+    brown = (g < 0.80 * r) & (b < g) & (r >= 50) & (s >= 60) & (v <= 225) & (h <= 25)
+    purple_brown = ((h >= 160) | (h <= 8)) & (r > g + 15) & (s >= 35) & (s <= 150) & (v >= 40) & (v <= 200) & ~petiole
+    dark = (v >= 15) & (v < 95) & (g <= r + 4) & (b <= g + 6) & (s >= 30)
+    grey_tan = (r >= g) & (b <= g) & (s < 90) & (v >= 50) & (v <= 210)
+    k = max(3, round(max(image.shape[:2]) * 0.03)) | 1
+    outline = cv2.morphologyEx(inside.astype("uint8"), cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))) > 0
+    mask = ((brown | purple_brown) & outline) | ((dark | grey_tan) & inside & ~leaf)
+    mask = mask.astype("uint8") * 255
 
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-    min_area = max(20, int(image.shape[0] * image.shape[1] * 0.0003))
-    return _keep_relevant_components(mask, min_area)
+    return _keep_relevant_components(mask, max(20, int(area * 0.0003)))
 
 
 def lesion_ratio(image: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
-    """Fração da folha coberta por manchas, com as máscaras da folha e das manchas.
+    """Fração da folha coberta por necrose, com as máscaras da folha e das manchas.
 
-    As manchas contam como parte da folha: uma folha muito necrosada perde o verde
-    e, sem isso, a taxa passaria de 100%.
+    A área da folha inclui as manchas e os buracos pequenos dentro dela: uma folha muito
+    necrosada perde o verde e, sem isso, a taxa passaria de 100%.
     """
     leaf = segment_leaf(image)
-    lesions = segment_infection(image)
-    # Manchas só contam se estiverem sobre a folha ou encostadas nela.
-    near_leaf = cv2.dilate(leaf.astype("uint8"), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25))) > 0
-    lesions = lesions & near_leaf
-    leaf_area = float((leaf | lesions).sum())
-    ratio = float(lesions.sum()) / leaf_area if leaf_area > 0 else 0.0
-    return ratio, leaf, lesions
+    lesions = segment_lesions(image, leaf)
+    leaf_area = fill_small_holes(leaf, int(image.shape[0] * image.shape[1] * 0.01)) | lesions
+    total = float(leaf_area.sum())
+    ratio = float(lesions.sum()) / total if total > 0 else 0.0
+    return ratio, leaf_area & ~lesions, lesions
 
 
 def main_leaf_region(leaf: np.ndarray, focus: np.ndarray | None = None) -> np.ndarray:

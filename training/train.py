@@ -7,6 +7,8 @@ mosqueado verde) também deixam a folha amarelada/manchada. Ensinar o modelo a s
 Uso:
     python training/train.py --epochs 10 --img-size 256
     python training/train.py --bench 20          # mede imagens/s e sai
+    # ajuste fino em resolução maior a partir de um modelo já treinado (manchas pequenas ficam visíveis):
+    python training/train.py --init training/models/greenleaf_effb0.pt --img-size 384 --cache-size 448 --epochs 4 --lr 3e-4 --batch-size 16 --out greenleaf_effb0_384
 """
 
 from __future__ import annotations
@@ -27,7 +29,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import v2 as T
 
 from common import (
-    CACHE_DIR,
+    CACHE_SIZE,
     CBB_INDEX,
     CLASS_CODES,
     IMAGENET_MEAN,
@@ -35,6 +37,7 @@ from common import (
     MODELS_DIR,
     REPORTS_DIR,
     SPLITS_CSV,
+    cache_dir,
     write_json,
 )
 
@@ -42,8 +45,8 @@ ARCH = "efficientnet_b0.ra_in1k"
 
 
 class LeafDataset(Dataset):
-    def __init__(self, df: pd.DataFrame, transform: T.Transform):
-        self.paths = [CACHE_DIR / name for name in df["image_id"]]
+    def __init__(self, df: pd.DataFrame, transform: T.Transform, cache_size: int = CACHE_SIZE):
+        self.paths = [cache_dir(cache_size) / name for name in df["image_id"]]
         self.labels = df["label"].to_numpy()
         self.transform = transform
 
@@ -144,11 +147,16 @@ def predict(model: nn.Module, loader: DataLoader, device: torch.device) -> tuple
     return np.concatenate(probs), np.concatenate(labels)
 
 
+def history_name(out: str) -> str:
+    return "train_history.json" if out == "greenleaf_effb0" else f"train_history_{out}.json"
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--epochs", type=int, default=10)
     p.add_argument("--img-size", type=int, default=256)
     p.add_argument("--batch-size", type=int, default=32)
+    p.add_argument("--val-batch-size", type=int, default=64, help="menor em resolução alta: a GPU de 8 GB não pode paginar")
     p.add_argument("--lr", type=float, default=6e-4)
     p.add_argument("--weight-decay", type=float, default=1e-2)
     p.add_argument("--label-smoothing", type=float, default=0.1)
@@ -157,6 +165,9 @@ def main() -> None:
     p.add_argument("--bench", type=int, default=0, help="só mede velocidade por N passos")
     p.add_argument("--limit", type=int, default=0, help="usa só N imagens de treino (teste rápido)")
     p.add_argument("--out", default="greenleaf_effb0")
+    p.add_argument("--cache-size", type=int, default=CACHE_SIZE, help="cache de prepare_data.py --cache-size")
+    p.add_argument("--init", default="", help="checkpoint .pt para começar (ajuste fino em resolução maior)")
+    p.add_argument("--warmup", type=float, default=0.5, help="aquecimento do LR, em épocas")
     args = p.parse_args()
 
     torch.manual_seed(42)
@@ -172,16 +183,23 @@ def main() -> None:
         val_df = val_df.sample(min(len(val_df), args.limit // 4), random_state=0)
 
     train_dl = DataLoader(
-        LeafDataset(train_df, train_transform(args.img_size)),
+        LeafDataset(train_df, train_transform(args.img_size), args.cache_size),
         batch_size=args.batch_size, shuffle=True, drop_last=True,
         num_workers=args.workers, persistent_workers=args.workers > 0,
     )
     val_dl = DataLoader(
-        LeafDataset(val_df, eval_transform(args.img_size)),
-        batch_size=64, num_workers=args.workers, persistent_workers=args.workers > 0,
+        LeafDataset(val_df, eval_transform(args.img_size), args.cache_size),
+        batch_size=args.val_batch_size, num_workers=args.workers, persistent_workers=args.workers > 0,
     )
 
-    model = timm.create_model(ARCH, pretrained=True, num_classes=len(CLASS_CODES), drop_rate=0.3, drop_path_rate=0.1)
+    arch = ARCH
+    if args.init:
+        init = torch.load(args.init, map_location="cpu", weights_only=False)
+        arch = init["arch"]
+    model = timm.create_model(arch, pretrained=not args.init, num_classes=len(CLASS_CODES), drop_rate=0.3, drop_path_rate=0.1)
+    if args.init:
+        model.load_state_dict(init["state_dict"])
+        print(f"Começando de {args.init} (época {init['epoch']}, {init['img_size']} px)")
     model.to(device)
     criterion = nn.CrossEntropyLoss(
         weight=class_weights(train_df["label"].to_numpy()).to(device),
@@ -190,7 +208,7 @@ def main() -> None:
     optimizer = SimpleAdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     steps_per_epoch = len(train_dl)
     total_steps = args.epochs * steps_per_epoch
-    warmup = steps_per_epoch // 2
+    warmup = max(1, int(steps_per_epoch * args.warmup))
 
     def lr_at(step: int) -> float:
         if step < warmup:
@@ -261,8 +279,9 @@ def main() -> None:
         if f1_macro > best_f1:
             best_f1 = f1_macro
             torch.save({
-                "arch": ARCH,
+                "arch": arch,
                 "img_size": args.img_size,
+                "cache_size": args.cache_size,
                 "classes": CLASS_CODES,
                 "state_dict": {k: v.detach().cpu() for k, v in model.state_dict().items()},
                 "epoch": epoch,
@@ -270,7 +289,7 @@ def main() -> None:
                 "val_accuracy": acc,
             }, ckpt_path)
             print(f"  -> melhor modelo salvo em {ckpt_path}")
-        write_json(REPORTS_DIR / "train_history.json", {"args": vars(args), "history": history})
+        write_json(REPORTS_DIR / history_name(args.out), {"args": vars(args), "history": history})
 
 
 if __name__ == "__main__":

@@ -1,0 +1,53 @@
+{
+  "args": {
+    "epochs": 4,
+    "img_size": 384,
+    "batch_size": 12,
+    "val_batch_size": 16,
+    "lr": 0.0002,
+    "weight_decay": 0.01,
+    "label_smoothing": 0.1,
+    "workers": 4,
+    "device": "dml",
+    "bench": 0,
+    "limit": 0,
+    "out": "greenleaf_effb0_384",
+    "cache_size": 448,
+    "init": "models/greenleaf_effb0.pt",
+    "warmup": 0.2
+  },
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 0.9894585424686716,
+      "val_accuracy": 0.8719626168224299,
+      "val_f1_macro": 0.7724199128557097,
+      "val_cbb_recall": 0.6203703703703703,
+      "minutes": 33.169387019999945
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.9329858884570642,
+      "val_accuracy": 0.8714953271028038,
+      "val_f1_macro": 0.7771405621011894,
+      "val_cbb_recall": 0.7962962962962963,
+      "minutes": 27.83785248166678
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.8824291608360338,
+      "val_accuracy": 0.8766355140186916,
+      "val_f1_macro": 0.7787760191724966,
+      "val_cbb_recall": 0.5370370370370371,
+      "minutes": 29.160843426666784
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.8457785898722907,
+      "val_accuracy": 0.8714953271028038,
+      "val_f1_macro": 0.7776340002867512,
+      "val_cbb_recall": 0.7129629629629629,
+      "minutes": 28.376655420000315
+    }
+  ]
+}

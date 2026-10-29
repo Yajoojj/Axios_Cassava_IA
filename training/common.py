@@ -10,7 +10,6 @@ ROOT = Path(__file__).resolve().parents[1]  # raiz do repositório
 TRAINING_DIR = ROOT / "training"
 SERVER_DIR = ROOT / "backend"
 DATASET_DIR = Path(os.environ.get("CASSAVA_DATASET_DIR", ROOT.parent / "cassava-leaf-disease-classification"))
-CACHE_DIR = TRAINING_DIR / "data" / "cache"
 SPLITS_CSV = TRAINING_DIR / "data" / "splits.csv"
 MODELS_DIR = TRAINING_DIR / "models"
 REPORTS_DIR = TRAINING_DIR / "reports"
@@ -30,6 +29,14 @@ HEALTHY_INDEX = CLASS_CODES.index("Healthy")
 # Imagens do cache são salvas quadradas (a foto inteira é redimensionada, sem corte),
 # igual ao que o servidor faz na inferência.
 CACHE_SIZE = 288
+
+
+def cache_dir(size: int = CACHE_SIZE) -> Path:
+    """data/cache para o tamanho padrão; data/cache_<N> para treinos em resolução maior."""
+    return TRAINING_DIR / "data" / ("cache" if size == CACHE_SIZE else f"cache_{size}")
+
+
+CACHE_DIR = cache_dir()
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 

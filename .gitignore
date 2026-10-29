@@ -15,7 +15,8 @@ backend/.venv/
 # Treino: cache das imagens e checkpoints PyTorch ficam fora do Git.
 # O modelo servido (backend/models/greenleaf_effb0.onnx + .json) é versionado.
 .venv/
-training/data/cache/
+training/data/cache*/
+training/reports/predictions_*.npz
 training/models/
 
 .idea/

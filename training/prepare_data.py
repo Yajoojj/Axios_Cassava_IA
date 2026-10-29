@@ -19,7 +19,7 @@ import pandas as pd
 from PIL import Image
 from sklearn.model_selection import train_test_split
 
-from common import CACHE_DIR, CACHE_SIZE, CLASS_CODES, DATASET_DIR, SPLITS_CSV
+from common import CACHE_SIZE, CLASS_CODES, DATASET_DIR, SPLITS_CSV, cache_dir
 
 
 def resize_one(args: tuple[Path, Path, int]) -> None:
@@ -35,32 +35,38 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument("--cache-size", type=int, default=CACHE_SIZE)
     args = parser.parse_args()
 
-    df = pd.read_csv(DATASET_DIR / "train.csv")
-    train_df, rest = train_test_split(df, test_size=0.2, stratify=df["label"], random_state=args.seed)
-    val_df, test_df = train_test_split(rest, test_size=0.5, stratify=rest["label"], random_state=args.seed)
-    train_df = train_df.assign(split="train")
-    val_df = val_df.assign(split="val")
-    test_df = test_df.assign(split="test")
-    splits = pd.concat([train_df, val_df, test_df]).sort_values("image_id").reset_index(drop=True)
-    SPLITS_CSV.parent.mkdir(parents=True, exist_ok=True)
-    splits.to_csv(SPLITS_CSV, index=False)
+    if SPLITS_CSV.exists():
+        # A divisão é a mesma para todos os modelos: o teste nunca pode ter sido visto no treino.
+        splits = pd.read_csv(SPLITS_CSV)
+    else:
+        df = pd.read_csv(DATASET_DIR / "train.csv")
+        train_df, rest = train_test_split(df, test_size=0.2, stratify=df["label"], random_state=args.seed)
+        val_df, test_df = train_test_split(rest, test_size=0.5, stratify=rest["label"], random_state=args.seed)
+        train_df = train_df.assign(split="train")
+        val_df = val_df.assign(split="val")
+        test_df = test_df.assign(split="test")
+        splits = pd.concat([train_df, val_df, test_df]).sort_values("image_id").reset_index(drop=True)
+        SPLITS_CSV.parent.mkdir(parents=True, exist_ok=True)
+        splits.to_csv(SPLITS_CSV, index=False)
 
     counts = splits.groupby(["split", "label"]).size().unstack(fill_value=0)
     counts.columns = [CLASS_CODES[c] for c in counts.columns]
     print(counts)
 
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir = cache_dir(args.cache_size)
+    out_dir.mkdir(parents=True, exist_ok=True)
     jobs = [
-        (DATASET_DIR / "train_images" / name, CACHE_DIR / name, CACHE_SIZE)
+        (DATASET_DIR / "train_images" / name, out_dir / name, args.cache_size)
         for name in splits["image_id"]
     ]
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
         for i, _ in enumerate(pool.map(resize_one, jobs, chunksize=64), 1):
             if i % 2000 == 0:
                 print(f"{i}/{len(jobs)} imagens em cache")
-    print(f"Cache pronto em {CACHE_DIR}")
+    print(f"Cache pronto em {out_dir}")
 
 
 if __name__ == "__main__":

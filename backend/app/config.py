@@ -45,17 +45,28 @@ MAX_UPLOAD_MB = _int_env("MAX_UPLOAD_MB", 8)
 MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 # Lado maior da imagem usada na análise de cor e no overlay (a rede usa a própria entrada).
 ANALYSIS_MAX_SIDE = _int_env("ANALYSIS_MAX_SIDE", 768)
-TTA = os.getenv("TTA", "true").lower() in ("1", "true", "yes")
 
 MODEL_PATH = _path_env("MODEL_PATH", "models/greenleaf_effb0.onnx")
 MODEL_META_PATH = _path_env("MODEL_META_PATH", "models/greenleaf_effb0.json")
 
 
+def _meta() -> dict:
+    try:
+        return json.loads(MODEL_META_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
 def _meta_value(key: str, default: float) -> float:
     try:
-        return float(json.loads(MODEL_META_PATH.read_text(encoding="utf-8"))["decision"][key])
-    except (OSError, KeyError, ValueError, TypeError):
+        return float(_meta()["decision"][key])
+    except (KeyError, ValueError, TypeError):
         return default
+
+
+# Espelhamento na inferência: o padrão é o do modelo (medido na avaliação); TTA=true/false sobrescreve.
+_tta_env = os.getenv("TTA", "").strip().lower()
+TTA = _tta_env in ("1", "true", "yes") if _tta_env else bool(_meta().get("tta_hflip", True))
 
 
 # Limiar e peso vêm do arquivo de metadados (calibrados no conjunto de validação);

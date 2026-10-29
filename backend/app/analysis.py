@@ -106,6 +106,11 @@ def analyze(rgb: np.ndarray, predictor: Predictor | None, settings: DecisionSett
         hsv_probability = min(ratio / 0.20, 1.0)
         probability = settings.model_weight * model_probability + (1 - settings.model_weight) * hsv_probability
         infected = probability >= settings.threshold
+        if not infected:
+            # Sem bacteriose, nada de "mancha suspeita" em vermelho: a cor sozinha não distingue
+            # bacteriose de mosaico, sombra ou folha velha (AUC 0,45–0,62 na validação).
+            lesions = np.zeros_like(lesions)
+            ratio = 0.0
 
         top_code = classes[top]
         extras = {

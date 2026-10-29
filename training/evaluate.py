@@ -4,13 +4,14 @@ Roda o MESMO código do servidor (backend/app: ONNX + análise de cor) sobre as 
 originais do Kaggle, então os números valem para o que o app vai receber.
 
 1. Validação: escolhe o peso da rede (MODEL_WEIGHT) e o limiar (CONFIDENCE_THRESHOLD)
-   que maximizam o F2 da bacteriose (revocação pesa mais: deixar passar uma folha
-   doente custa mais que um alarme que o técnico confere).
+   que maximizam o F-beta da bacteriose. beta=1 (padrão) equilibra alarmes falsos e
+   bacterioses perdidas; beta=2 dá mais peso a não deixar passar folha doente.
 2. Teste: métricas finais (5 classes e bacteriose sim/não), matriz de confusão,
    comparação com a regra antiga só por cor e tempo de inferência.
 
 Uso:
     python training/evaluate.py
+    python training/evaluate.py --name greenleaf_effb0_384 --beta 1
 """
 
 from __future__ import annotations
@@ -51,7 +52,9 @@ ANALYSIS_MAX_SIDE = 768
 
 
 def run_split(predictor: Predictor, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
-    settings = DecisionSettings(threshold=0.5, model_weight=1.0)
+    # Limiar 0: tudo "Infectado", para a taxa de manchas não ser zerada antes da calibração
+    # (o servidor zera a taxa quando não é bacteriose, depois de decidir).
+    settings = DecisionSettings(threshold=0.0, model_weight=1.0)
     probs, ratios, raw_ratios, times = [], [], [], []
     for i, name in enumerate(df["image_id"], 1):
         # PIL em vez de cv2.imread: o OpenCV não abre caminhos com acento no Windows.
@@ -62,7 +65,7 @@ def run_split(predictor: Predictor, df: pd.DataFrame) -> tuple[np.ndarray, np.nd
         times.append(time.perf_counter() - t0)
         probs.append([out["class_probabilities"][c] for c in CLASS_CODES])
         ratios.append(out["ratio"])
-        raw_ratios.append(lesion_ratio(rgb)[0])  # só cor, sem a rede: o que o v1 fazia
+        raw_ratios.append(lesion_ratio(rgb)[0])  # só cor, sem a rede
         if i % 500 == 0:
             print(f"  {i}/{len(df)}", flush=True)
     return np.array(probs), np.array(ratios), np.array(raw_ratios), float(np.mean(times) * 1000)
@@ -112,9 +115,9 @@ NAMES_PT = {"CBB": "Bacteriose (CBB)", "CBSD": "Estria marrom (CBSD)", "CGM": "M
 def write_markdown(m: dict, path) -> None:
     pct = lambda v: f"{v * 100:.1f}%"  # noqa: E731
     mc, b = m["multiclass"], m["bacteriose"]
-    new, old = b["greenleaf_v2"], b["hsv_only_v1_rule"]
+    new, old = b["greenleaf_v2"], b["hsv_only_rule"]
     lines = [
-        "# Resultados — GreenLeaf IA v2",
+        "# Resultados — GreenLeaf IA",
         "",
         f"Modelo `{m['model']}`, conjunto de **teste** com {m['test_images']} fotos do Kaggle nunca usadas no treino "
         "nem na calibração (divisão estratificada 80/10/10, semente 42). Medido com o mesmo código do servidor.",
@@ -138,7 +141,7 @@ def write_markdown(m: dict, path) -> None:
         f"Regra: `probabilidade = {b['decision']['model_weight']} × P(CBB) + {1 - b['decision']['model_weight']:.2f} × prob. pela cor`, "
         f"bacteriose se ≥ **{b['decision']['threshold']}** (escolhido por {b['decision']['objective']}).",
         "",
-        "| Métrica | GreenLeaf v2 | Regra só por cor (v1) |",
+        "| Métrica | GreenLeaf (rede + cor) | Só cor, sem rede |",
         "|---|---|---|",
     ]
     for key, label in (("recall", "Revocação (bacterioses encontradas)"), ("precision", "Precisão (alarmes corretos)"),
@@ -161,7 +164,7 @@ def write_markdown(m: dict, path) -> None:
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--name", default="greenleaf_effb0")
-    p.add_argument("--beta", type=float, default=2.0)
+    p.add_argument("--beta", type=float, default=1.0)
     p.add_argument("--no-tta", action="store_true")
     p.add_argument("--limit", type=int, default=0, help="usa só N imagens por conjunto (teste rápido)")
     args = p.parse_args()
@@ -172,7 +175,7 @@ def main() -> None:
         "version": f"{args.name}-{date.today().isoformat()}",
         "arch": ckpt["arch"],
         "img_size": ckpt["img_size"],
-        "cache_size": CACHE_SIZE,
+        "cache_size": int(ckpt.get("cache_size", CACHE_SIZE)),
         "classes": CLASS_CODES,
         "input": "float32 [N,3,S,S] RGB 0-1; normalização ImageNet dentro do grafo",
         "outputs": {"probs": "softmax [N,5]", "cam": "mapa de ativação [N,5,S/32,S/32]"},
@@ -191,13 +194,18 @@ def main() -> None:
     print("Validação (calibração)...")
     val_probs, val_ratios, _, _ = run_split(predictor, val_df)
     y_val = (val_df["label"].to_numpy() == CBB_INDEX).astype(int)
-    best = None
+    per_weight = {}
     for w in np.round(np.arange(0.5, 1.0001, 0.05), 2):
         score = combined(val_probs, val_ratios, w)
-        for t in np.round(np.arange(0.05, 0.951, 0.01), 2):
-            fb = fbeta_score(y_val, (score >= t).astype(int), beta=args.beta)
-            if best is None or fb > best[0] + 1e-9:
-                best = (fb, float(w), float(t))
+        per_weight[float(w)] = max(
+            (fbeta_score(y_val, (score >= t).astype(int), beta=args.beta), float(t))
+            for t in np.round(np.arange(0.05, 0.951, 0.01), 2)
+        )
+    # A cor só entra se melhorar o F-beta da validação em mais de 0,01: com ~100 bacterioses na
+    # validação, diferenças menores são ruído (a taxa de manchas sozinha tem AUC ~0,4–0,5).
+    best_w = max(per_weight, key=lambda w: per_weight[w][0])
+    w_best = best_w if per_weight[best_w][0] > per_weight[1.0][0] + 0.01 else 1.0
+    best = (per_weight[w_best][0], w_best, per_weight[w_best][1])
     _, w_best, t_best = best
     print(f"  peso da rede = {w_best}, limiar = {t_best} (F{args.beta:g} val = {best[0]:.4f})")
 
@@ -211,10 +219,16 @@ def main() -> None:
     y_bin = (y5 == CBB_INDEX).astype(int)
     score = combined(test_probs, test_ratios, w_best)
     new_rule = binary_metrics(y_bin, (score >= t_best).astype(int), score)
-    # Regra antiga, só por cor (o que o Axios fazia sem modelo): taxa >= 2% ou prob. HSV >= 0,45.
+    # Regra só por cor (o que o servidor faz sem modelo): taxa >= 2% ou prob. HSV >= 0,45.
     hsv_prob = np.minimum(test_raw_ratios / 0.20, 1.0)
     old_rule = binary_metrics(y_bin, ((test_raw_ratios >= 0.02) | (hsv_prob >= 0.45)).astype(int), hsv_prob)
+    np.savez_compressed(
+        REPORTS_DIR / f"predictions_{args.name}.npz",
+        val_ids=val_df["image_id"].to_numpy(), val_labels=val_df["label"].to_numpy(), val_probs=val_probs, val_ratios=val_ratios,
+        test_ids=test_df["image_id"].to_numpy(), test_labels=y5, test_probs=test_probs, test_ratios=test_ratios,
+    )
 
+    history = REPORTS_DIR / ("train_history.json" if args.name == "greenleaf_effb0" else f"train_history_{args.name}.json")
     metrics = {
         "model": meta["version"],
         "test_images": int(len(test_df)),
@@ -227,10 +241,10 @@ def main() -> None:
         "bacteriose": {
             "decision": {"model_weight": w_best, "threshold": t_best, "objective": f"F{args.beta:g} na validação"},
             "greenleaf_v2": new_rule,
-            "hsv_only_v1_rule": old_rule,
+            "hsv_only_rule": old_rule,
         },
         "latency_ms_per_image_cpu": ms,
-        "training": read_json(REPORTS_DIR / "train_history.json") if (REPORTS_DIR / "train_history.json").exists() else None,
+        "training": read_json(history) if history.exists() else None,
     }
     write_json(REPORTS_DIR / "metrics.json", metrics)
     plot_confusion(cm, REPORTS_DIR / "confusion_matrix.png")
@@ -250,7 +264,7 @@ def main() -> None:
     print(f"\n5 classes: acurácia {metrics['multiclass']['accuracy']:.4f} | F1 macro {metrics['multiclass']['f1_macro']:.4f}")
     for c in CLASS_CODES:
         print(f"  {c:8s} P {pc[c]['precision']:.3f}  R {pc[c]['recall']:.3f}  F1 {pc[c]['f1-score']:.3f}  n={int(pc[c]['support'])}")
-    for name, m in (("GreenLeaf v2", new_rule), ("Só cor (v1)", old_rule)):
+    for name, m in (("GreenLeaf", new_rule), ("Só cor", old_rule)):
         print(f"Bacteriose — {name}: P {m['precision']:.3f} R {m['recall']:.3f} F1 {m['f1']:.3f} "
               f"espec. {m['specificity']:.3f} AUC {m['roc_auc']:.3f}")
     print(f"Tempo médio (CPU, modelo + cor): {ms:.0f} ms/imagem")
